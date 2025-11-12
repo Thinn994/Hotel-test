@@ -141,14 +141,24 @@ def get_ai_response(message):
                 prompt,
                 generation_config={
                     "temperature": 0.7,
-                    "max_output_tokens": 500,  # Giảm xuống để response ngắn hơn
+                    "max_output_tokens": 300,
                 }
             )
             
-            # Kết hợp response AI với nút HTML (nếu có khách sạn)
+            # Kết hợp response AI với nút HTML (CHỈ khi có khách sạn và user hỏi cụ thể)
             final_response = response.text.strip()
-            if hotel_buttons_html and not recommended_hotels.empty:
-                final_response += "\n\n**Bạn có thể xem chi tiết từng khách sạn bên dưới:**\n" + hotel_buttons_html
+            
+            # Chỉ thêm nút khi user hỏi cụ thể về khách sạn, không phải chào hỏi
+            has_hotel_query = any(word in message_lower for word in [
+                'khách sạn', 'hotel', 'nghỉ', 'ở', 'đặt phòng', 'hồ bơi', 'bể bơi', 
+                'pool', 'biển', 'sea', 'spa', 'gym', 'buffet', 'tìm', 'recommend'
+            ])
+            
+            if hotel_buttons_html and has_hotel_query and not recommended_hotels.empty:
+                final_response += "\n\n---\n**Bạn có thể xem chi tiết từng khách sạn:**\n" + hotel_buttons_html
+            elif not recommended_hotels.empty and not has_hotel_query:
+                # Nếu AI tìm thấy khách sạn nhưng user chỉ chào hỏi, KHÔNG hiển thị nút
+                pass
                 
             return final_response
             
@@ -728,6 +738,7 @@ def update_hotel_status(name, status):
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
