@@ -9,6 +9,10 @@ def calculate_scores_and_explain(df, all_prefs):
     # Tạo bản sao để tính toán
     df_scored = df.copy()
     
+    # DEBUG: Kiểm tra kiểu dữ liệu
+    print(f"🔍 Số lượng khách sạn: {len(df_scored)}")
+    print(f"🔍 Columns: {list(df_scored.columns)}")
+    
     # LỌC CỨNG (Hard Filter) ---
     min_stars = all_prefs.get('min_stars', 0)
     if min_stars > 0:
@@ -18,10 +22,38 @@ def calculate_scores_and_explain(df, all_prefs):
     if df_scored.empty:
         return df_scored, "Không tìm thấy khách sạn nào sau khi lọc theo số sao."
 
+    # ĐẢM BẢO KIỂU DỮ LIỆU SỐ
+    try:
+        # Convert các cột số
+        numeric_columns = ['price', 'stars', 'rating']
+        for col in numeric_columns:
+            if col in df_scored.columns:
+                # Chuyển đổi sang số, nếu lỗi thì thành 0
+                df_scored[col] = pd.to_numeric(df_scored[col], errors='coerce').fillna(0)
+                print(f"✅ Converted {col} to numeric")
+        
+        # Convert các cột boolean từ string sang boolean
+        boolean_columns = ['pool', 'sea', 'view', 'spa', 'buffet', 'gym']
+        for col in boolean_columns:
+            if col in df_scored.columns:
+                # Chuyển đổi 'True'/'False' string sang boolean
+                df_scored[col] = df_scored[col].apply(
+                    lambda x: str(x).strip().lower() in ['true', '1', 'yes', 'có', '1.0', 'true.0', '1']
+                )
+                print(f"✅ Converted {col} to boolean. Sample: {df_scored[col].iloc[0] if len(df_scored) > 0 else 'N/A'}")
+        
+        # Khởi tạo điểm số
+        df_scored['recommend_score'] = 0
+                
+    except Exception as e:
+        print(f"⚠️ Lỗi convert dữ liệu: {e}")
+        # Khởi tạo điểm số mặc định nếu có lỗi
+        df_scored['recommend_score'] = 0
+
     # TÍNH ĐIỂM (Scoring Logic) - ƯU TIÊN HEALING ---
     
     # ĐIỂM CƠ BẢN: Rating quan trọng nhất
-    df_scored['recommend_score'] = df_scored['rating'] * 5  # Tăng hệ số rating
+    df_scored['recommend_score'] += df_scored['rating'] * 5
     explanation_log.append("Điểm cơ bản dựa trên rating.")
 
     # 1. TÍNH ĐIỂM TIỆN ÍCH - ƯU TIÊN HEALING
@@ -34,23 +66,51 @@ def calculate_scores_and_explain(df, all_prefs):
         'gym': 4         # Gym - ít quan trọng hơn
     }
 
+    # XỬ LÝ TEXT TÌM KIẾM - HỖ TRỢ CẢ TIẾNG VIỆT
+    user_text = all_prefs.get('text_query', '').lower()
+
+    # MAPPING TỪ KHÓA TIẾNG VIỆT SANG TIẾNG ANH
+    vietnamese_to_english = {
+        # Tiện ích
+        'hồ bơi': 'pool', 'bể bơi': 'pool', 'bơi lội': 'pool',
+        'view biển': 'sea', 'biển': 'sea', 'gần biển': 'sea', 'biển cả': 'sea',
+        'spa': 'spa', 'massage': 'spa', 'xông hơi': 'spa',
+        'buffet': 'buffet', 'ăn sáng': 'buffet', 'bữa sáng': 'buffet',
+        'gym': 'gym', 'thể hình': 'gym', 'tập thể dục': 'gym', 'phòng gym': 'gym',
+        'view': 'view', 'cảnh đẹp': 'view', 'view thành phố': 'view',
+        'giá rẻ': 'price_low', 'rẻ': 'price_low', 'giá thấp': 'price_low', 'giá tốt': 'price_low',
+        'đánh giá tốt': 'high_rating', 'nhiều sao': 'high_rating', 'rating cao': 'high_rating'
+    }
+
+    # CHUYỂN ĐỔI TỪ KHÓA TIẾNG VIỆT SANG TIẾNG ANH
+    translated_text = user_text
+    for viet_word, eng_word in vietnamese_to_english.items():
+        if viet_word in user_text:
+            translated_text += " " + eng_word
+
+    # Xử lý các tính năng bằng cả tiếng Việt và Anh
     for feature, base_score in healing_features.items():
-        if all_prefs.get(feature, False):
-            # Khách sạn có tính năng được yêu cầu
+        # Tìm từ khóa tiếng Việt tương ứng
+        viet_keywords = [viet for viet, eng in vietnamese_to_english.items() if eng == feature]
+        
+        # Kiểm tra cả tiếng Việt và tiếng Anh
+        has_feature_request = (all_prefs.get(feature, False) or 
+                              any(keyword in user_text for keyword in viet_keywords) or
+                              feature in translated_text)
+        
+        if has_feature_request:
+            print(f"🎯 Phát hiện yêu cầu {feature}, thêm điểm cho khách sạn có tính năng này")
             df_scored['recommend_score'] += df_scored[feature].apply(
                 lambda has_feature: base_score if has_feature else 0
             )
-            explanation_log.append(f"Ưu tiên khách sạn có {feature}.")
-            
-            # THÊM ĐIỂM BONUS NẾU CÓ NHIỀU TIỆN ÍCH HEALING
-            if has_feature:
-                other_healing_features = [f for f in healing_features.keys() if f != feature]
-                bonus_count = sum(df_scored[other_feat] for other_feat in other_healing_features)
-                bonus_score = bonus_count * 3
-                df_scored['recommend_score'] += bonus_score
+            explanation_log.append(f"Phát hiện yêu cầu {feature}, ưu tiên khách sạn có tính năng này.")
 
     # 2. BONUS CHO KHÁCH SẠN CÓ NHIỀU TIỆN ÍCH HEALING
-    healing_count = sum(df_scored[feat] for feat in healing_features.keys())
+    healing_count = 0
+    for feat in healing_features.keys():
+        if feat in df_scored.columns:
+            healing_count += df_scored[feat].sum()
+    
     df_scored['recommend_score'] += healing_count * 2
     explanation_log.append("Thêm điểm cho khách sạn có nhiều tiện ích healing.")
 
@@ -58,92 +118,27 @@ def calculate_scores_and_explain(df, all_prefs):
     df_scored['recommend_score'] += df_scored['stars'] * 8
     explanation_log.append("Ưu tiên khách sạn nhiều sao.")
 
-    # 4. XỬ LÝ TEXT TÌM KIẾM - HỖ TRỢ CẢ TIẾNG VIỆT
-    user_text = all_prefs.get('text', '').lower()
-    user_query = all_prefs.get('text_query', '').lower()
-    combined_text = user_text + " " + user_query
-
-    # MAPPING TỪ KHÓA TIẾNG VIỆT SANG TIẾNG ANH
-    vietnamese_to_english = {
-        # Tiện ích
-        'hồ bơi': 'pool', 'bể bơi': 'pool', 'bơi lội': 'pool',
-        'view biển': 'sea', 'biển': 'sea', 'gần biển': 'sea',
-        'spa': 'spa', 'massage': 'spa', 
-        'buffet': 'buffet', 'ăn sáng': 'buffet',
-        'gym': 'gym', 'thể hình': 'gym', 'tập thể dục': 'gym',
-        'view': 'view', 'cảnh đẹp': 'view',
-        
-        # Từ khóa healing
-        'healing': 'healing', 'thư giãn': 'thư giãn', 'nghỉ dưỡng': 'nghỉ dưỡng',
-        'yên tĩnh': 'yên tĩnh', 'thanh bình': 'yên tĩnh',
-        
-        # Giá cả
-        'giá rẻ': 'giá rẻ', 'rẻ': 'giá rẻ', 'giá thấp': 'giá rẻ',
-        'đánh giá tốt': 'đánh giá tốt', 'nhiều sao': 'nhiều sao'
-    }
-
-    # CHUYỂN ĐỔI TỪ KHÓA TIẾNG VIỆT SANG TIẾNG ANH
-    translated_text = combined_text
-    for viet_word, eng_word in vietnamese_to_english.items():
-        if viet_word in combined_text:
-            translated_text += " " + eng_word
-
     # Xử lý "giá rẻ" - cả tiếng Việt và Anh
-    if 'giá rẻ' in combined_text or 'rẻ' in combined_text or 'giá thấp' in combined_text or 'cheap' in translated_text:
+    if 'giá rẻ' in user_text or 'rẻ' in user_text or 'giá thấp' in user_text or 'cheap' in translated_text:
         max_price = df_scored['price'].max()
         if max_price > 0:
             df_scored['recommend_score'] += ((max_price - df_scored['price']) / max_price) * 20
         explanation_log.append("Ưu tiên khách sạn giá rẻ.")
     
     # Xử lý "nhiều đánh giá tích cực"
-    if 'nhiều đánh giá tích cực' in combined_text or 'đánh giá tốt' in combined_text:
+    if 'nhiều đánh giá tích cực' in user_text or 'đánh giá tốt' in user_text:
         df_scored['recommend_score'] += df_scored['rating'] * 3
         explanation_log.append("Ưu tiên khách sạn có đánh giá cao.")
 
-    # Xử lý các tính năng bằng cả tiếng Việt và Anh
-    # KIỂM TRA CẢ TỪ KHÓA TIẾNG VIỆT
-    for feature, base_score in healing_features.items():
-        # Tìm từ khóa tiếng Việt tương ứng
-        viet_keywords = [viet for viet, eng in vietnamese_to_english.items() if eng == feature]
-        
-        # Kiểm tra cả tiếng Việt và tiếng Anh
-        has_feature_request = (all_prefs.get(feature, False) or 
-                              any(keyword in combined_text for keyword in viet_keywords) or
-                              feature in translated_text)
-        
-        if has_feature_request:
-            df_scored['recommend_score'] += df_scored[feature].apply(
-                lambda has_feature: base_score if has_feature else 0
-            )
-            explanation_log.append(f"Ưu tiên khách sạn có {feature}.")
-            
-            # Bonus cho nhiều tiện ích
-            if has_feature:
-                other_healing_features = [f for f in healing_features.keys() if f != feature]
-                bonus_count = sum(df_scored[other_feat] for other_feat in other_healing_features)
-                bonus_score = bonus_count * 3
-                df_scored['recommend_score'] += bonus_score
-
-    # Xử lý từ khóa healing bằng cả tiếng Việt
-    healing_keywords_mapping = {
-        'healing': ['pool', 'sea', 'spa', 'view'],
-        'thư giãn': ['spa', 'pool', 'sea'],
-        'nghỉ dưỡng': ['spa', 'pool', 'sea', 'view'],
-        'yên tĩnh': ['spa', 'view']
-    }
-
-    for keyword, features in healing_keywords_mapping.items():
-        # Kiểm tra cả tiếng Việt và từ mapped
-        if keyword in translated_text:
-            for feature in features:
-                df_scored['recommend_score'] += df_scored[feature].apply(
-                    lambda has_feature: 8 if has_feature else 0
-                )
-            explanation_log.append(f"Phát hiện từ khóa healing, ưu tiên tiện ích phù hợp.")
-
-    # 5. ĐẢM BẢO ĐIỂM KHÔNG ÂM VÀ LÀM TRÒN
+    # 4. ĐẢM BẢO ĐIỂM KHÔNG ÂM VÀ LÀM TRÒN
     df_scored['recommend_score'] = df_scored['recommend_score'].round(2)
     df_scored['recommend_score'] = df_scored['recommend_score'].clip(lower=0)
+    
+    # DEBUG: Hiển thị điểm số
+    print(f"🎯 Điểm số min: {df_scored['recommend_score'].min()}, max: {df_scored['recommend_score'].max()}")
+    print(f"🎯 Top 3 khách sạn:")
+    for i, (_, hotel) in enumerate(df_scored.nlargest(3, 'recommend_score').iterrows(), 1):
+        print(f"   {i}. {hotel['name']} - Điểm: {hotel['recommend_score']}")
     
     # SẮP XẾP (Sorting) ---
     final_results_sorted = df_scored.sort_values(by="recommend_score", ascending=False)
