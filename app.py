@@ -110,7 +110,7 @@ def get_ai_response(message):
                 import json
                 hotel_safe = {k: (str(v) if pd.notna(v) else "") for k, v in hotel.items()}
                 hotel_json = json.dumps(hotel_safe, ensure_ascii=False)
-                hotel_buttons_html += f'<button class="btn-hotel-detail" data-hotel=\'{hotel_json}\' onclick="showHotelDetail(this)">📖 {hotel["name"]} - Xem chi tiết</button>\n'
+                hotel_buttons_html += f'<button class="btn-hotel-detail" data-hotel=\'{hotel_json}\' onclick="showHotelDetail(this)">📖 Khách sạn {i}</button>\n'
         else:
             hotels_list_for_ai = "Hiện không tìm thấy khách sạn phù hợp với yêu cầu của bạn."
 
@@ -738,6 +738,7 @@ def update_hotel_status(name, status):
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
