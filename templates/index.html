@@ -192,7 +192,7 @@
                     <li class="nav-item"><a class="nav-link" href="/about">Giới thiệu</a></li>
                     <li class="nav-item"><a class="nav-link" href="#search">Tìm kiếm</a></li>
                     <li class="nav-item"><a class="nav-link" href="/history">📘 Lịch sử đặt phòng</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/admin/login">🔑 Admin</a></li> <!-- ✅ Nút Admin -->
+                    <li class="nav-item"><a class="nav-link" href="/admin/login">🔑 Admin</a></li>
                     <li class="nav-item"><a class="nav-link" href="tel:+84987654321">📞 0987 654 321</a></li>
                 </ul>
             </div>
@@ -247,6 +247,25 @@
         © 2025 Smart Hotel Finder | Thiết kế bởi 💖 Nhóm của bạn
     </footer>
 
+    <!-- Modal Chi Tiết Khách Sạn -->
+    <div class="modal fade" id="hotelDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="hotelModalTitle">Chi Tiết Khách Sạn</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="hotelModalBody">
+                    <!-- Nội dung sẽ được điền bằng JavaScript -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-primary" id="bookHotelBtn">Đặt Phòng Ngay</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- === CHATBOT WIDGET === -->
@@ -275,11 +294,12 @@
                     <div class="message-content">
                         <div class="message-sender">AI Assistant</div>
                         <div class="message-text">
-                            👋 Chào bạn! Tôi là trợ lý AI có thể giúp bạn:<br>
-                            • Tìm khách sạn theo ngân sách & địa điểm<br>
-                            • So sánh các khách sạn<br>
-                            • Tư vấn địa điểm du lịch<br><br>
-                            Bạn cần hỗ trợ gì ạ?
+                            👋 Chào bạn! Tôi là trợ lý AI thông minh có thể giúp bạn:<br>
+                            • Tìm khách sạn theo sở thích & cảm xúc<br>
+                            • Đề xuất khách sạn healing, nghỉ dưỡng<br>
+                            • So sánh giá cả và tiện ích<br>
+                            • Tư vấn hoạt động du lịch<br><br>
+                            Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                         </div>
                         <div class="message-time">Vừa xong</div>
                     </div>
@@ -289,7 +309,7 @@
             <div class="chatbot-input">
                 <div class="input-group">
                     <input type="text" id="chatbotInput" class="form-control"
-                           placeholder="Nhập câu hỏi của bạn..." autocomplete="off">
+                           placeholder="Ví dụ: Tôi buồn quá, cần khách sạn healing..." autocomplete="off">
                     <button class="btn btn-primary" onclick="sendChatMessage()" id="sendButton">
                         <span class="send-icon">📤</span>
                     </button>
@@ -460,6 +480,7 @@
             font-size: 14px;
             line-height: 1.4;
             word-wrap: break-word;
+            white-space: pre-line;
         }
 
         .message-time {
@@ -508,6 +529,111 @@
             font-size: 16px;
         }
 
+        /* === MODAL STYLES === */
+        .hotel-modal-content {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .hotel-detail-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .hotel-features {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .room-type {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+            color: #333;
+        }
+
+        .price-highlight {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #e52e71;
+        }
+
+        /* Nút trong chatbot */
+        .btn-hotel-detail {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            cursor: pointer;
+            margin: 5px 0;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+            .btn-hotel-detail:hover {
+                background: #5a6fd8;
+                transform: scale(1.05);
+                color: white;
+                text-decoration: none;
+            }
+
+        /* Scrollbar cho modal */
+        .modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+
+        /* FIX TEXT COLOR FOR CHATBOT */
+        .chatbot-container,
+        .chatbot-messages,
+        .message-content,
+        .message-text,
+        .message-sender,
+        .message-time {
+            color: #333333 !important;
+        }
+
+        .user-message .message-content,
+        .user-message .message-text,
+        .user-message .message-sender,
+        .user-message .message-time {
+            color: white !important;
+        }
+
+        .chatbot-header,
+        .chatbot-name,
+        .chatbot-status {
+            color: white !important;
+        }
+
         /* Animations */
         @keyframes pulse {
             0% {
@@ -554,28 +680,6 @@
                 background: #a8a8a8;
             }
 
-        .chatbot-container,
-        .chatbot-messages,
-        .message-content,
-        .message-text,
-        .message-sender,
-        .message-time {
-            color: #333333 !important;
-        }
-
-        .user-message .message-content,
-        .user-message .message-text,
-        .user-message .message-sender,
-        .user-message .message-time {
-            color: white !important;
-        }
-
-        .chatbot-header,
-        .chatbot-name,
-        .chatbot-status {
-            color: white !important;
-        }
-
         /* Responsive */
         @media (max-width: 480px) {
             .chatbot-widget {
@@ -594,6 +698,10 @@
 
             .chatbot-text {
                 font-size: 12px;
+            }
+
+            .modal-dialog {
+                margin: 20px;
             }
         }
     </style>
@@ -630,14 +738,14 @@
 
             // Add user message
             messagesContainer.innerHTML += `
-                <div class="message user-message">
-                    <div class="message-content">
-                        <div class="message-sender">Bạn</div>
-                        <div class="message-text">${message}</div>
-                        <div class="message-time">${getCurrentTime()}</div>
+                    <div class="message user-message">
+                        <div class="message-content">
+                            <div class="message-sender">Bạn</div>
+                            <div class="message-text">${message}</div>
+                            <div class="message-time">${getCurrentTime()}</div>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
 
             // Clear input and disable button
             input.value = '';
@@ -661,34 +769,125 @@
                 // Add AI response
                 setTimeout(() => {
                     messagesContainer.innerHTML += `
-                        <div class="message bot-message">
-                            <div class="message-content">
-                                <div class="message-sender">AI Assistant</div>
-                                <div class="message-text">${data.response}</div>
-                                <div class="message-time">${getCurrentTime()}</div>
+                            <div class="message bot-message">
+                                <div class="message-content">
+                                    <div class="message-sender">AI Assistant</div>
+                                    <div class="message-text">${data.response}</div>
+                                    <div class="message-time">${getCurrentTime()}</div>
+                                </div>
                             </div>
-                        </div>
-                    `;
+                        `;
 
                     // Scroll to bottom again
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+                    // Re-attach event listeners for hotel detail buttons
+                    setTimeout(attachHotelButtonListeners, 100);
+
                 }, 500);
 
             } catch (error) {
                 messagesContainer.innerHTML += `
-                    <div class="message bot-message">
-                        <div class="message-content">
-                            <div class="message-sender">AI Assistant</div>
-                            <div class="message-text">Xin lỗi, có lỗi kết nối. Vui lòng thử lại.</div>
-                            <div class="message-time">${getCurrentTime()}</div>
+                        <div class="message bot-message">
+                            <div class="message-content">
+                                <div class="message-sender">AI Assistant</div>
+                                <div class="message-text">Xin lỗi, có lỗi kết nối. Vui lòng thử lại.</div>
+                                <div class="message-time">${getCurrentTime()}</div>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
             } finally {
                 // Re-enable button
                 sendButton.disabled = false;
                 input.focus();
             }
+        }
+
+        // Hàm hiển thị modal chi tiết khách sạn
+        function showHotelDetail(button) {
+            try {
+                const hotelData = JSON.parse(button.getAttribute('data-hotel'));
+
+                // Điền thông tin vào modal
+                document.getElementById('hotelModalTitle').textContent = hotelData.name;
+
+                const modalBody = document.getElementById('hotelModalBody');
+                const price = parseInt(hotelData.price) || 0;
+                const stars = hotelData.stars || 'N/A';
+                const city = hotelData.city || 'N/A';
+                const description = hotelData.description || hotelData.review || 'Khách sạn tiện nghi, phục vụ chuyên nghiệp.';
+
+                modalBody.innerHTML = `
+                        <div class="hotel-modal-content">
+                            <img src="${hotelData.image_url || hotelData.image || 'https://via.placeholder.com/600x300?text=Khách+Sạn'}"
+                                 class="hotel-detail-image" alt="${hotelData.name}">
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h4 class="price-highlight">${price.toLocaleString()} VND/đêm</h4>
+                                    <p>⭐ ${stars} sao | 📍 ${city}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Trạng thái:</strong> ${hotelData.status || 'Còn phòng'}</p>
+                                    <p><strong>Đánh giá:</strong> ${hotelData.rating || 'Chưa có'} ⭐</p>
+                                </div>
+                            </div>
+
+                            <div class="hotel-features">
+                                <div class="feature-item">${hotelData.pool ? '✅' : '❌'} 🏊 Hồ bơi</div>
+                                <div class="feature-item">${hotelData.gym ? '✅' : '❌'} 🏋️ Gym</div>
+                                <div class="feature-item">${hotelData.spa ? '✅' : '❌'} 💆 Spa</div>
+                                <div class="feature-item">${(hotelData.sea_view || hotelData.sea) ? '✅' : '❌'} 🌅 View biển</div>
+                                <div class="feature-item">${hotelData.buffet ? '✅' : '❌'} 🍽️ Buffet sáng</div>
+                                <div class="feature-item">${hotelData.view ? '✅' : '❌'} 🏞️ View đẹp</div>
+                            </div>
+
+                            <h5>Mô tả:</h5>
+                            <p style="color: #333;">${description}</p>
+
+                            <h5>Loại phòng:</h5>
+                            <div class="room-type">
+                                <strong>Phòng Tiêu Chuẩn</strong><br>
+                                Giá: ${price.toLocaleString()} VND/đêm
+                            </div>
+                            <div class="room-type">
+                                <strong>Phòng Superior</strong><br>
+                                Giá: ${(price * 1.3).toLocaleString()} VND/đêm
+                            </div>
+                            <div class="room-type">
+                                <strong>Phòng Deluxe</strong><br>
+                                Giá: ${(price * 1.6).toLocaleString()} VND/đêm
+                            </div>
+                            <div class="room-type">
+                                <strong>Suite</strong><br>
+                                Giá: ${(price * 2.0).toLocaleString()} VND/đêm
+                            </div>
+                        </div>
+                    `;
+
+                // Xử lý nút đặt phòng
+                document.getElementById('bookHotelBtn').onclick = function () {
+                    window.location.href = `/booking/${encodeURIComponent(hotelData.name)}/Phòng Tiêu Chuẩn`;
+                };
+
+                // Hiển thị modal
+                const modal = new bootstrap.Modal(document.getElementById('hotelDetailModal'));
+                modal.show();
+
+            } catch (error) {
+                console.error('Lỗi khi hiển thị chi tiết khách sạn:', error);
+                alert('Có lỗi xảy ra khi tải thông tin khách sạn. Vui lòng thử lại.');
+            }
+        }
+
+        // Gắn sự kiện cho các nút hotel detail
+        function attachHotelButtonListeners() {
+            const hotelButtons = document.querySelectorAll('.btn-hotel-detail');
+            hotelButtons.forEach(button => {
+                button.onclick = function () {
+                    showHotelDetail(this);
+                };
+            });
         }
 
         // Enter to send message
@@ -710,8 +909,11 @@
                 container.classList.remove('active');
             }
         });
+
+        // Gắn sự kiện khi trang load xong
+        document.addEventListener('DOMContentLoaded', function () {
+            attachHotelButtonListeners();
+        });
     </script>
 </body>
 </html>
-
-
