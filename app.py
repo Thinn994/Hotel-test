@@ -72,10 +72,7 @@ def get_ai_response(message):
                 
                 features_str = " • ".join(features) if features else "Tiện nghi cơ bản"
                 
-                hotels_info += f"{i}. **{hotel['name']}**\n"
-                hotels_info += f"   ⭐ {hotel.get('stars', 'N/A')} sao • 💰 {price} VND/đêm\n"
-                hotels_info += f"   📍 {hotel.get('city', 'N/A')}\n"
-                hotels_info += f"   🎯 {features_str}\n"
+                hotels_info += f"{i}. {hotel['name']} - {price} VND - {hotel.get('stars', 'N/A')}⭐ - {features_str}\n"
                 
                 # Thêm nút xem chi tiết
                 hotel_json = hotel.to_json()
@@ -87,25 +84,27 @@ def get_ai_response(message):
         model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = f"""
-        Bạn là trợ lý du lịch thông minh. Dựa trên dữ liệu khách sạn dưới đây, hãy trả lời câu hỏi:
+        Bạn là trợ lý du lịch. Dựa trên dữ liệu dưới đây, hãy trả lời câu hỏi:
 
-        CÂU HỎI: "{message}"
+        Câu hỏi: {message}
 
-        DỮ LIỆU KHÁCH SẠN ĐỀ XUẤT:
         {hotels_info}
 
-        YÊU CẦU:
-        1. Trả lời tự nhiên, thân thiện bằng tiếng Việt
-        2. Giới thiệu các khách sạn từ danh sách trên 
-        3. Giải thích ngắn gọn vì sao phù hợp
-        4. Giữ nguyên các nút "Xem chi tiết" trong response
-        5. Nếu không có khách sạn, đề xuất người dùng thử từ khóa khác
+        Yêu cầu:
+        - Trả lời ngắn gọn, thân thiện bằng tiếng Việt
+        - Giới thiệu các khách sạn từ danh sách trên
+        - Giữ nguyên các nút "Xem chi tiết"
+        - Nếu không có khách sạn, đề xuất từ khóa khác
 
-        Phản hồi của bạn:
+        Phản hồi:
         """
         
-        response = model.generate_content(prompt)
-        return response.text
+        try:
+            response = model.generate_content(prompt, request_options={"timeout": 30})
+            return response.text
+        except Exception as ai_error:
+            print(f"❌ Lỗi AI request: {ai_error}")
+            return get_fallback_response(message)
         
     except Exception as e:
         print(f"❌ Lỗi AI với dữ liệu CSV: {e}")
@@ -679,5 +678,6 @@ def update_hotel_status(name, status):
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
