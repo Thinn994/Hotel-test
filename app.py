@@ -88,7 +88,7 @@ def get_ai_response(message):
                 requested_features.append(feature)
         
         # TÍNH TOÁN ĐIỂM VÀ LỌC KHÁCH SẠN
-        from recommend import calculate_scores_and_explain
+        from modules.recommend import calculate_scores_and_explain
         
         # Tạo preferences cho hệ thống recommend
         all_prefs = {}
@@ -794,3 +794,4 @@ def update_hotel_status(name, status):
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
