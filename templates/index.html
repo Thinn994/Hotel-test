@@ -538,19 +538,11 @@
             font-size: 14px;
         }
 
-        /* === MODAL STYLES === */
+        /* === MODAL STYLES - KHÔNG CÓ HÌNH ẢNH === */
         .hotel-modal-content {
             max-height: 60vh;
             overflow-y: auto;
             padding-right: 10px;
-        }
-
-        .hotel-detail-image {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            border-radius: 10px;
-            margin-bottom: 15px;
         }
 
         .hotel-features {
@@ -582,6 +574,14 @@
             font-size: 1.3em;
             font-weight: bold;
             color: #e52e71;
+        }
+
+        .hotel-basic-info {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
         }
 
         /* === STYLES CHO HIỂN THỊ KHÁCH SẠN TRONG CHATBOT - NHỎ HƠN === */
@@ -910,7 +910,7 @@
             }
         }
 
-        // Hàm hiển thị modal chi tiết khách sạn
+        // Hàm hiển thị modal chi tiết khách sạn - KHÔNG CÓ HÌNH ẢNH
         function showHotelDetail(button) {
             try {
                 const hotelData = JSON.parse(button.getAttribute('data-hotel'));
@@ -926,18 +926,11 @@
 
                 modalBody.innerHTML = `
                         <div class="hotel-modal-content">
-                            <img src="${hotelData.image_url || hotelData.image || 'https://via.placeholder.com/600x300?text=Khách+Sạn'}"
-                                 class="hotel-detail-image" alt="${hotelData.name}">
-
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <h4 class="price-highlight">${price.toLocaleString()} VND/đêm</h4>
-                                    <p>⭐ ${stars} sao | 📍 ${city}</p>
-                                </div>
-                                <div class="col-md-6">
-                                    <p><strong>Trạng thái:</strong> ${hotelData.status || 'Còn phòng'}</p>
-                                    <p><strong>Đánh giá:</strong> ${hotelData.rating || 'Chưa có'} ⭐</p>
-                                </div>
+                            <div class="hotel-basic-info">
+                                <h4 class="price-highlight">${price.toLocaleString()} VND/đêm</h4>
+                                <p><strong>${hotelData.name}</strong></p>
+                                <p>⭐ ${stars} sao | 📍 ${city}</p>
+                                <p><strong>Trạng thái:</strong> ${hotelData.status || 'Còn phòng'} | <strong>Đánh giá:</strong> ${hotelData.rating || 'Chưa có'} ⭐</p>
                             </div>
 
                             <div class="hotel-features">
@@ -949,10 +942,10 @@
                                 <div class="feature-item">${hotelData.view ? '✅' : '❌'} 🏞️ View đẹp</div>
                             </div>
 
-                            <h5>Mô tả:</h5>
-                            <p style="color: #333;">${description}</p>
+                            <h6>Mô tả:</h6>
+                            <p style="color: #333; font-size: 13px;">${description}</p>
 
-                            <h5>Loại phòng:</h5>
+                            <h6>Loại phòng:</h6>
                             <div class="room-type">
                                 <strong>Phòng Tiêu Chuẩn</strong><br>
                                 Giá: ${price.toLocaleString()} VND/đêm
