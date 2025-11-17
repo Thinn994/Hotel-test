@@ -78,61 +78,50 @@ def get_ai_response(message):
         recommended_hotels, explanation = calculate_scores_and_explain(hotels_data, all_prefs)
         print(f"✅ Recommend system: {explanation}")
 
-        # CHUẨN BỊ DỮ LIỆU CHO AI - HIỂN THỊ THÔNG TIN NGẮN GỌN VỚI NÚT CHI TIẾT
-        hotels_list_for_ai = ""
-        hotel_buttons_html = ""  # Tách riêng phần nút HTML
+        # TẠO DANH SÁCH KHÁCH SẠN CHI TIẾT ĐỂ HIỂN THỊ TRỰC TIẾP
+        hotels_details = ""
         
         if not recommended_hotels.empty:
-            hotels_list_for_ai = "**KHÁCH SẠN PHÙ HỢP:**\n\n"
+            hotels_details = "**🏨 KHÁCH SẠN PHÙ HỢP:**\n\n"
             
             for i, (_, hotel) in enumerate(recommended_hotels.head(3).iterrows(), 1):
-                price = f"{hotel.get('price', 0):,.0f}" if pd.notna(hotel.get('price')) else "Liên hệ"
+                price = f"{hotel.get('price', 0):,.0f} VND" if pd.notna(hotel.get('price')) else "Liên hệ"
                 stars = hotel.get('stars', 'N/A')
+                location = hotel.get('location', '')
                 
-                # Tạo khung hiển thị thông tin cơ bản cho mỗi khách sạn
-                hotel_info = f"🏨 **{hotel['name']}**\n"
-                hotel_info += f"⭐ {stars} sao | 💰 {price} VND/đêm\n"
+                # Tạo thông tin chi tiết cho mỗi khách sạn
+                hotel_info = f"**{i}. {hotel['name']}**\n"
+                hotel_info += f"   ⭐ {stars} sao | 💰 {price}/đêm\n"
+                hotel_info += f"   📍 {location}\n"
                 
-                # Thêm các tiêu chí nổi bật CHO AI
-                features_ai = []
+                # Thêm các tiêu chí nổi bật
+                features = []
                 if str(hotel.get('pool', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_ai.append("🏊 hồ bơi")
+                    features.append("🏊 Hồ bơi")
                 if str(hotel.get('sea', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_ai.append("🌅 view biển")
+                    features.append("🌅 View biển")
                 if str(hotel.get('spa', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_ai.append("💆 spa")
+                    features.append("💆 Spa")
                 if str(hotel.get('buffet', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_ai.append("🍽️ buffet")
+                    features.append("🍽️ Buffet")
                 if str(hotel.get('gym', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_ai.append("🏋️ gym")
+                    features.append("🏋️ Gym")
+                if str(hotel.get('wifi', '')).lower() in ('true', '1', 'yes', 'có'): 
+                    features.append("📶 WiFi")
+                if str(hotel.get('parking', '')).lower() in ('true', '1', 'yes', 'có'): 
+                    features.append("🅿️ Parking")
                 
-                if features_ai:
-                    hotel_info += f"📋 Tiện ích: {', '.join(features_ai)}\n"
+                if features:
+                    hotel_info += f"   🎯 Tiện ích: {', '.join(features)}\n"
                 
-                hotels_list_for_ai += hotel_info + "\n"
+                # Thêm mô tả nếu có
+                if pd.notna(hotel.get('description')):
+                    desc = str(hotel['description'])[:100] + "..." if len(str(hotel['description'])) > 100 else str(hotel['description'])
+                    hotel_info += f"   📝 {desc}\n"
                 
-                # Tạo nút xem chi tiết nhỏ - CHỈ VĂN BẢN THUẦN
-                import json
-                hotel_safe = {k: (str(v) if pd.notna(v) else "") for k, v in hotel.items()}
-                hotel_json = json.dumps(hotel_safe, ensure_ascii=False)
-                
-                # Tạo thông tin cơ bản cho khách sạn HIỂN THỊ TRONG CHAT
-                features_display = []
-                if str(hotel.get('pool', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_display.append("🏊")
-                if str(hotel.get('sea', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_display.append("🌅")
-                if str(hotel.get('spa', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_display.append("💆")
-                if str(hotel.get('buffet', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_display.append("🍽️")
-                if str(hotel.get('gym', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_display.append("🏋️")
-                
-                features_str = " ".join(features_display) if features_display else ""
-                
+                hotels_details += hotel_info + "\n"
         else:
-            hotels_list_for_ai = "Hiện không tìm thấy khách sạn phù hợp với yêu cầu của bạn."
+            hotels_details = "❌ Hiện không tìm thấy khách sạn phù hợp với yêu cầu của bạn."
 
         # GỌI GEMINI AI ĐỂ TẠO PHẢN HỒI TỰ NHIÊN
         model = genai.GenerativeModel('gemini-2.5-flash')
@@ -142,16 +131,17 @@ def get_ai_response(message):
 
         **Câu hỏi người dùng:** "{message}"
 
-        **Dữ liệu khách sạn có sẵn:**
-        {hotels_list_for_ai}
+        **DANH SÁCH KHÁCH SẠN CHI TIẾT:**
+        {hotels_details}
 
         **YÊU CẦU QUAN TRỌNG:**
         - Trả lời bằng tiếng Việt tự nhiên, thân thiện
-        - CHỈ giới thiệu ngắn gọn về các khách sạn, KHÔNG liệt kê chi tiết từng cái
-        - Nếu có khách sạn, cuối cùng nói: "Bạn có thể xem chi tiết từng khách sạn bên dưới:"
-        - Nếu không có khách sạn, đề xuất từ khóa tìm kiếm khác
-        - KHÔNG được tạo HTML, KHÔNG tạo nút - phần nút sẽ được thêm riêng
-        - Giữ phản hồi ngắn gọn, tập trung vào cuộc trò chuyện
+        - ĐẦU TIÊN phân tích ngắn gọn yêu cầu của người dùng
+        - SAU ĐÓ giới thiệu các khách sạn phù hợp dựa trên danh sách trên
+        - Nhấn mạnh các điểm nổi bật như giá cả, tiện ích, số sao
+        - Cuối cùng hỏi xem người dùng cần thêm thông tin gì
+        - KHÔNG được bỏ qua thông tin giá cả, số sao, tiện ích
+        - Giữ phản hồi trong 200-300 từ
 
         **Phản hồi (chỉ văn bản thuần):**
         """
@@ -161,30 +151,17 @@ def get_ai_response(message):
                 prompt,
                 generation_config={
                     "temperature": 0.7,
-                    "max_output_tokens": 300,
+                    "max_output_tokens": 500,  # Tăng token để đủ chỗ cho chi tiết
                 }
             )
             
-            # Kết hợp response AI với nút HTML (CHỈ khi có khách sạn và user hỏi cụ thể)
             final_response = response.text.strip()
-            
-            # Chỉ thêm nút khi user hỏi cụ thể về khách sạn, không phải chào hỏi
-            has_hotel_query = any(word in message_lower for word in [
-                'khách sạn', 'hotel', 'nghỉ', 'ở', 'đặt phòng', 'hồ bơi', 'bể bơi', 
-                'pool', 'biển', 'sea', 'spa', 'gym', 'buffet', 'tìm', 'recommend'
-            ])
-            
-            if hotel_buttons_html and has_hotel_query and not recommended_hotels.empty:
-                final_response += "\n\n---\n**Bạn có thể xem chi tiết từng khách sạn:**\n" + hotel_buttons_html
-            elif not recommended_hotels.empty and not has_hotel_query:
-                # Nếu AI tìm thấy khách sạn nhưng user chỉ chào hỏi, KHÔNG hiển thị nút
-                pass
-                
             return final_response
             
         except Exception as ai_error:
             print(f"❌ Lỗi AI request: {ai_error}")
-            return get_fallback_response(message)
+            # Fallback: hiển thị trực tiếp danh sách khách sạn
+            return f"Tôi đã tìm thấy một số khách sạn phù hợp:\n\n{hotels_details}"
         
     except Exception as e:
         print(f"❌ Lỗi AI với dữ liệu CSV: {e}")
@@ -758,6 +735,7 @@ def update_hotel_status(name, status):
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
