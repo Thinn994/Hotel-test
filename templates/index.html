@@ -930,32 +930,38 @@
         }
 
         // Hàm hiển thị modal chi tiết khách sạn
-        function showHotelDetail(hotelName) {
+        async function showHotelDetail(hotelName) {
             console.log('🔄 Đang mở modal chi tiết cho:', hotelName);
-            
-            // Hiển thị modal
+        
             const modal = new bootstrap.Modal(document.getElementById('hotelDetailModal'));
             modal.show();
-            
-            // Đặt tiêu đề
+        
             document.getElementById('hotelDetailModalLabel').textContent = hotelName;
-            
-            // Load nội dung từ API
-            fetch(`/api/hotel-detail/${encodeURIComponent(hotelName)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        renderHotelDetail(data);
-                    } else {
-                        document.getElementById('hotelDetailContent').innerHTML = 
-                            '<div class="alert alert-danger">Không thể tải thông tin khách sạn</div>';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    document.getElementById('hotelDetailContent').innerHTML = 
-                        '<div class="alert alert-danger">Lỗi kết nối</div>';
-                });
+            const content = document.getElementById('hotelDetailContent');
+            content.innerHTML = '<p>Đang tải thông tin...</p>';
+        
+            try {
+                const res = await fetch(`/api/hotel-detail/${encodeURIComponent(hotelName)}`);
+                const data = await res.json();
+        
+                if (data.success) {
+                    content.innerHTML = `
+                        <div class="hotel-basic-info">
+                            <strong>${data.hotel.name}</strong><br>
+                            ⭐ ${data.avg_rating}
+                        </div>
+                        <div class="hotel-features">
+                            ${Object.entries(data.features).map(([k,v]) => `<div class="feature-item">${v} ${k}</div>`).join('')}
+                        </div>
+                        <h6>Loại phòng</h6>
+                        ${data.rooms.map(r => `<div class="room-type">${r.type} — <span class="price-highlight">${r.price}</span></div>`).join('')}
+                    `;
+                } else {
+                    content.innerHTML = `<p>${data.error}</p>`;
+                }
+            } catch (err) {
+                content.innerHTML = `<p>Lỗi tải dữ liệu: ${err}</p>`;
+            }
         }
         
         // Hàm render nội dung chi tiết
@@ -1077,10 +1083,9 @@
         });
 
         // Gắn sự kiện khi trang load xong
-        document.addEventListener('DOMContentLoaded', function () {
-            attachHotelButtonListeners();
-        });
+        document.addEventListener('click', handleHotelDetailClick);
     </script>
 </body>
 </html>
+
 
