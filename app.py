@@ -136,7 +136,8 @@ def get_ai_response(message):
                         <strong>{hotel['name']}</strong>
                         <small>⭐ {stars} sao | 💰 {price}/đêm</small>
                     </div>
-                    <button class="btn-hotel-detail-small" data-hotel-name="Hotel ABC">
+                    <button class="btn-hotel-detail-small" 
+                            data-hotel-name="{hotel['name']}">
                         Chi tiết
                     </button>
                 </div>
@@ -823,6 +824,7 @@ def update_hotel_status(name, status):
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
