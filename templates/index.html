@@ -1170,7 +1170,7 @@
             console.log('🔍 Đang gắn event listeners cho nút chi tiết...');
             
             // Xóa event listeners cũ để tránh trùng lặp
-            document.removeEventListener('click', handleHotelDetailClick);
+            //document.removeEventListener('click', handleHotelDetailClick);
             
             // Thêm event listener mới với delegation
             document.addEventListener('click', handleHotelDetailClick);
@@ -1214,25 +1214,22 @@
             }
         });
 
-        // Gắn sự kiện khi trang load xong
-        const hotelListContainer = document.getElementById('hotelListContainerId'); 
-        if (hotelListContainer) {
-            hotelListContainer.addEventListener('click', handleHotelDetailClick);
-        }
-
         // Hàm để cập nhật nội dung danh sách khách sạn
         function updateHotelList(hotels_display_string) {
             const container = document.getElementById('hotelListContainerId');
             if (container) {
                 document.getElementById('hotelListContainerId').innerHTML = hotels_display_string;
                 // Gắn lại event listeners sau khi cập nhật nội dung
-                attachHotelButtonListeners();
+                //attachHotelButtonListeners();
             }
         }
+
+        attachHotelButtonListeners();
 
         // Ví dụ sử dụng hàm updateHotelList:
         // updateHotelList('<h2 class="hotel-list-title">Danh sách khách sạn đề xuất</h2><div class="hotel-grid">...</div>');
     </script>
 </body>
 </html>
+
 
