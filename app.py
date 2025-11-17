@@ -131,18 +131,6 @@ def get_ai_response(message):
                 
                 features_str = " ".join(features_display) if features_display else ""
                 
-                hotel_buttons_html += f'''
-                <div style="background:#f8f9fa;border:1px solid #e1e5e9;border-radius:8px;padding:6px 8px;margin:4px 0;display:flex;justify-content:space-between;align-items:center;gap:6px;max-width:100%;font-size:10px;">
-                    <div style="flex:1;min-width:0;">
-                        <strong style="color:#333;display:block;margin-bottom:1px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{hotel["name"]}</strong>
-                        <small style="color:#666;display:block;">⭐ {stars} | 💰 {price} VND</small>
-                        <small style="color:#888;">{features_str}</small>
-                    </div>
-                    <button class="btn-hotel-detail-small" data-hotel='{hotel_json}' onclick="showHotelDetail(this)" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none;padding:4px 6px;border-radius:4px;font-size:9px;cursor:pointer;white-space:nowrap;min-width:45px;height:20px;">
-                        Chi tiết
-                    </button>
-                </div>
-                '''
         else:
             hotels_list_for_ai = "Hiện không tìm thấy khách sạn phù hợp với yêu cầu của bạn."
 
@@ -770,6 +758,7 @@ def update_hotel_status(name, status):
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
