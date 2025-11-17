@@ -80,7 +80,7 @@ def get_ai_response(message):
 
         # TẠO DANH SÁCH KHÁCH SẠN VỚI NÚT CHI TIẾT
         hotels_display = ""
-        detail_buttons = ""
+        modal_buttons = ""
         
         if not recommended_hotels.empty:
             hotels_display = "**🏨 KHÁCH SẠN PHÙ HỢP:**\n\n"
@@ -116,8 +116,11 @@ def get_ai_response(message):
                 
                 hotels_display += hotel_info
                 
-                # Tạo nút "Xem chi tiết" cho mỗi khách sạn
-                detail_buttons += f"\n🔍 **{hotel['name']}** - `/detail_{i}`"
+                modal_buttons += f"""
+                <button class="btn btn-outline-primary btn-sm mt-2" onclick="showHotelDetail('{hotel['name']}')">
+                    📋 Xem chi tiết {hotel['name']}
+                </button><br>
+                """
                 
                 hotels_display += "\n"
 
@@ -165,11 +168,19 @@ def get_ai_response(message):
             
             # KẾT HỢP: Phản hồi AI + Danh sách khách sạn + Nút chi tiết
             if not recommended_hotels.empty:
-                full_response = f"{final_response}\n\n{hotels_display}"
-                full_response += f"\n**📋 XEM CHI TIẾT:**{detail_buttons}"
-                full_response += f"\n\n💡 *Sử dụng lệnh /detail_1, /detail_2,... để xem thông tin đầy đủ*"
+                full_response = f"""
+                <div class="ai-response">
+                    {final_response}
+                    <div class="hotels-list mt-3">
+                        {hotels_display.replace('\n', '<br>')}
+                    </div>
+                    <div class="modal-buttons mt-3">
+                        {modal_buttons}
+                    </div>
+                </div>
+                """
             else:
-                full_response = final_response
+                full_response = f"<div class='ai-response'>{final_response}</div>"
                 
             return full_response
             
@@ -200,6 +211,61 @@ def handle_chat():
         
     except Exception as e:
         return jsonify({'success': False, 'response': 'Lỗi hệ thống. Vui lòng thử lại!'})
+
+@app.route('/api/hotel-detail/<name>')
+def api_hotel_detail(name):
+    """API trả về JSON chi tiết khách sạn cho modal"""
+    try:
+        hotels_df = read_csv_safe(HOTELS_CSV)
+        hotels_df = ensure_hotel_columns(hotels_df)
+
+        hotel_data = hotels_df[hotels_df['name'] == name]
+
+        if hotel_data.empty:
+            return jsonify({"error": "Không tìm thấy khách sạn"}), 404
+
+        hotel = map_hotel_row(hotel_data.iloc[0].to_dict())
+        reviews_df_local = read_csv_safe(REVIEWS_CSV)
+        hotel_reviews = reviews_df_local[reviews_df_local['hotel_name'] == name].to_dict(orient='records')
+
+        # Tính rating trung bình
+        avg_rating = (
+            round(sum(float(r.get('rating', 0)) for r in hotel_reviews) / len(hotel_reviews), 1)
+            if hotel_reviews else hotel.get('rating', 'Chưa có')
+        )
+
+        # Tính năng khách sạn
+        features = {
+            "Buffet sáng": yes_no_icon(hotel.get("buffet")),
+            "Bể bơi": yes_no_icon(hotel.get("pool")),
+            "Phòng gym": yes_no_icon(hotel.get("gym")),
+            "Spa": yes_no_icon(hotel.get("spa")),
+            "View biển": yes_no_icon(hotel.get("sea_view") or hotel.get("sea")),
+            "WiFi miễn phí": yes_no_icon(hotel.get("wifi")),
+            "Bãi đỗ xe": yes_no_icon(hotel.get("parking"))
+        }
+
+        # Loại phòng
+        base_price = float(hotel.get('price', 0))
+        rooms = [
+            {"type": "Phòng Tiêu Chuẩn", "price": f"{round(base_price * 1.0):,} VND"},
+            {"type": "Phòng Superior", "price": f"{round(base_price * 1.3):,} VND"},
+            {"type": "Phòng Deluxe", "price": f"{round(base_price * 1.6):,} VND"},
+            {"type": "Suite", "price": f"{round(base_price * 2.0):,} VND"},
+        ]
+
+        return jsonify({
+            "success": True,
+            "hotel": hotel,
+            "features": features,
+            "rooms": rooms,
+            "reviews": hotel_reviews[:5],  # Chỉ lấy 5 review gần nhất
+            "avg_rating": avg_rating,
+            "total_reviews": len(hotel_reviews)
+        })
+    
+    except Exception as e:
+        return jsonify({"error": f"Lỗi tải chi tiết: {str(e)}"}), 500
 
 # ==================== CẤU HÌNH EMAIL ====================
 app.config.update(
@@ -752,6 +818,7 @@ def update_hotel_status(name, status):
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
