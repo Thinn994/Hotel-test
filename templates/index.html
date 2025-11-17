@@ -854,30 +854,30 @@
         async function sendChatMessage() {
             const input = document.getElementById('chatbotInput');
             const message = input.value.trim();
-
+        
             if (!message) return;
-
+        
             const messagesContainer = document.getElementById('chatbotMessages');
             const sendButton = document.getElementById('sendButton');
-
+        
             // Add user message
             messagesContainer.innerHTML += `
-                    <div class="message user-message">
-                        <div class="message-content">
-                            <div class="message-sender">Bạn</div>
-                            <div class="message-text">${message}</div>
-                            <div class="message-time">${getCurrentTime()}</div>
-                        </div>
+                <div class="message user-message">
+                    <div class="message-content">
+                        <div class="message-sender">Bạn</div>
+                        <div class="message-text">${message}</div>
+                        <div class="message-time">${getCurrentTime()}</div>
                     </div>
-                `;
-
+                </div>
+            `;
+        
             // Clear input and disable button
             input.value = '';
             sendButton.disabled = true;
-
+        
             // Scroll to bottom
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
+        
             try {
                 // Call AI API
                 const response = await fetch('/api/chat', {
@@ -887,39 +887,41 @@
                     },
                     body: JSON.stringify({ message: message })
                 });
-
+        
                 const data = await response.json();
-
+        
                 // Add AI response
                 setTimeout(() => {
                     messagesContainer.innerHTML += `
-                            <div class="message bot-message">
-                                <div class="message-content">
-                                    <div class="message-sender">AI Assistant</div>
-                                    <div class="message-text">${data.response}</div>
-                                    <div class="message-time">${getCurrentTime()}</div>
-                                </div>
-                            </div>
-                        `;
-
-                    // Scroll to bottom again
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-                    // Re-attach event listeners for hotel detail buttons
-                    setTimeout(attachHotelButtonListeners, 100);
-
-                }, 500);
-
-            } catch (error) {
-                messagesContainer.innerHTML += `
                         <div class="message bot-message">
                             <div class="message-content">
                                 <div class="message-sender">AI Assistant</div>
-                                <div class="message-text">Xin lỗi, có lỗi kết nối. Vui lòng thử lại.</div>
+                                <div class="message-text">${data.response}</div>
                                 <div class="message-time">${getCurrentTime()}</div>
                             </div>
                         </div>
                     `;
+        
+                    // Scroll to bottom again
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+                    // 🔥 QUAN TRỌNG: Gắn lại event listeners cho các nút mới
+                    setTimeout(() => {
+                        attachHotelButtonListeners();
+                    }, 100);
+        
+                }, 500);
+        
+            } catch (error) {
+                messagesContainer.innerHTML += `
+                    <div class="message bot-message">
+                        <div class="message-content">
+                            <div class="message-sender">AI Assistant</div>
+                            <div class="message-text">Xin lỗi, có lỗi kết nối. Vui lòng thử lại.</div>
+                            <div class="message-time">${getCurrentTime()}</div>
+                        </div>
+                    </div>
+                `;
             } finally {
                 // Re-enable button
                 sendButton.disabled = false;
@@ -929,6 +931,8 @@
 
         // Hàm hiển thị modal chi tiết khách sạn
         function showHotelDetail(hotelName) {
+            console.log('🔄 Đang mở modal chi tiết cho:', hotelName);
+            
             // Hiển thị modal
             const modal = new bootstrap.Modal(document.getElementById('hotelDetailModal'));
             modal.show();
@@ -1024,23 +1028,25 @@
             window.location.href = `/booking?name=${encodeURIComponent(hotelName)}`;
         }
 
-        // Gắn sự kiện cho các nút hotel detail
         function attachHotelButtonListeners() {
-            // Các nút mới (hotel-card)
-            const hotelSmallButtons = document.querySelectorAll('.btn-hotel-detail-small');
-            hotelSmallButtons.forEach(button => {
-                button.onclick = function () {
-                    showHotelDetail(this);
-                };
-            });
-
-            // Các nút cũ (cho tương thích)
-            const hotelButtons = document.querySelectorAll('.btn-hotel-detail');
-            hotelButtons.forEach(button => {
-                button.onclick = function () {
-                    showHotelDetail(this);
-                };
-            });
+            console.log('🔍 Đang gắn event listeners cho nút chi tiết...');
+            
+            // Xóa event listeners cũ để tránh trùng lặp
+            document.removeEventListener('click', handleHotelDetailClick);
+            
+            // Thêm event listener mới với delegation
+            document.addEventListener('click', handleHotelDetailClick);
+        }
+        
+        function handleHotelDetailClick(e) {
+            // Kiểm tra nếu click vào nút chi tiết
+            if (e.target.closest('.btn-hotel-detail-small')) {
+                const button = e.target.closest('.btn-hotel-detail-small');
+                const hotelName = button.getAttribute('data-hotel-name');
+                if (hotelName) {
+                    showHotelDetail(hotelName);
+                }
+            }
         }
 
         // Enter to send message
@@ -1070,5 +1076,3 @@
     </script>
 </body>
 </html>
-
-
