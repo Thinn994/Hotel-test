@@ -180,26 +180,22 @@ def get_ai_response(message):
             response = model.generate_content(
                 prompt,
                 generation_config={
-                    "temperature": 0.8,  # Tăng temperature để phản hồi sáng tạo hơn
+                    "temperature": 0.8,
                     "max_output_tokens": 400,
                 }
             )
             
-            final_response = response.text.strip()
-            
-            # KẾT HỢP: Phản hồi AI + Danh sách khách sạn + Nút chi tiết
-            if not recommended_hotels.empty:
-                full_response = f"""
-                <div class="ai-response">
-                    {final_response}
-                    <br><br>
-                    {hotels_display}
-                </div>
-                """
+            # SỬA PHẦN NÀY - Xử lý response phức tạp
+            if response.text:
+                final_response = response.text.strip()
             else:
-                full_response = f"<div class='ai-response'>{final_response}</div>"
+                # Nếu response.text không hoạt động, extract text từ parts
+                final_response = ""
+                for part in response.parts:
+                    final_response += part.text
+                final_response = final_response.strip()
                 
-            return full_response
+            print(f"✅ AI Response: {final_response[:100]}...")
             
         except Exception as ai_error:
             print(f"❌ Lỗi AI request: {ai_error}")
@@ -828,6 +824,7 @@ def update_hotel_status(name, status):
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
