@@ -143,7 +143,7 @@ def get_ai_response(message):
                 </div>
                 """
                 
-                hotels_display += hotel_info + "<br>"
+                hotels_display += hotel_info + `<div class="hotel-item">${hotel_info}</div>`
 
         else:
             hotels_display = "❌ Hiện không tìm thấy khách sạn phù hợp với yêu cầu của bạn."
@@ -824,6 +824,7 @@ def update_hotel_status(name, status):
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
