@@ -93,20 +93,23 @@ def get_ai_response(message):
                 # Thông tin cơ bản hiển thị trực tiếp
                 hotel_info = f"**{i}. {hotel['name']}**\n"
                 hotel_info += f"   ⭐ {stars} sao | 💰 {price}/đêm\n"
-                hotel_info += f"   📍 {location}\n"
                 
                 # Tiện ích nổi bật (hiển thị icon)
                 features_display = []
                 if str(hotel.get('pool', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_display.append("🏊")
+                    features.append("🏊 Hồ bơi")
                 if str(hotel.get('sea', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_display.append("🌅")
+                    features.append("🌅 View biển")
                 if str(hotel.get('spa', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_display.append("💆")
+                    features.append("💆 Spa")
                 if str(hotel.get('buffet', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_display.append("🍽️")
+                    features.append("🍽️ Buffet")
                 if str(hotel.get('gym', '')).lower() in ('true', '1', 'yes', 'có'): 
-                    features_display.append("🏋️")
+                    features.append("🏋️ Gym")
+                if str(hotel.get('wifi', '')).lower() in ('true', '1', 'yes', 'có'): 
+                    features.append("📶 WiFi")
+                if str(hotel.get('parking', '')).lower() in ('true', '1', 'yes', 'có'): 
+                    features.append("🅿️ Parking")
                 
                 if features_display:
                     hotel_info += f"   🎯 {''.join(features_display)}\n"
@@ -749,6 +752,7 @@ def update_hotel_status(name, status):
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
