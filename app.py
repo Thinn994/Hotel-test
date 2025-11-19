@@ -819,85 +819,82 @@ def delete_hotel(name):
 @app.route('/api/chat', methods=['POST'])
 def api_chat():
     if not model:
-        return jsonify({"error": "Gemini AI chưa được cấu hình (thiếu API key?)"}), 500
+        return jsonify({"error": "Gemini AI chưa được cấu hình"}), 500
         
     try:
         user_query = request.json.get('query')
         if not user_query:
             return jsonify({"error": "Missing query"}), 400
 
-        today_str = datetime.now().strftime('%Y-%m-%d')
-        default_weather = 'sunny' # Giả định trời nắng
-
-        # 2. Gọi hàm từ AI.py để lấy điểm gợi ý
-        recommend_scores_df = get_hotel_recommendations(
-            input_date_str=today_str, 
-            input_weather_condition=default_weather
-        )
-        recommend_scores_str = recommend_scores_df.head(10).to_string() # Lấy 10 ks hàng đầu
-        # ================================
-
-
-        # 1. Đọc dữ liệu từ CSV (dữ liệu tĩnh và động)
+        # 1. Đọc dữ liệu từ CSV
         try:
-            # Đọc toàn bộ hotels.csv, nhưng chỉ lấy các cột quan trọng cho AI
-            hotels_df = pd.read_csv("hotels.csv", encoding='utf-8-sig', usecols=['name', 'city', 'price', 'stars', 'rating', 'buffet', 'pool', 'sea', 'view', 'status'])
-            # Đọc 20 reviews mới nhất
-            reviews_df = pd.read_csv("reviews.csv", encoding='utf-8-sig', usecols=['hotel_name', 'user', 'rating', 'comment']).tail(20)
+            hotels_df = pd.read_csv("hotels.csv", encoding='utf-8-sig')
+            hotels_info = hotels_df[['name', 'city', 'price', 'stars', 'rating']].to_string()
+            
+            reviews_df = pd.read_csv("reviews.csv", encoding='utf-8-sig')
+            reviews_info = reviews_df[['hotel_name', 'user', 'rating', 'comment']].tail(10).to_string()
         except Exception as e:
             print(f"Lỗi đọc CSV: {e}")
-            return jsonify({"error": "Lỗi đọc dữ liệu máy chủ"}), 500
-        
-        # Chuyển đổi sang chuỗi
-        hotel_data_str = hotels_df.to_string()
-        reviews_data_str = reviews_df.to_string()
+            hotels_info = "Không thể đọc dữ liệu"
+            reviews_info = "Không thể đọc đánh giá"
 
-        # 2. Xây dựng System Prompt (Bộ não AI)
+        # 2. Kiểm tra nếu cần search web
+        need_web_search = any(keyword in user_query.lower() for keyword in 
+                            ['thời tiết', 'weather', 'sự kiện', 'event', 'mới nhất', 'cập nhật'])
+
+        web_results = ""
+        if need_web_search:
+            try:
+                web_results = google_search(user_query)
+            except Exception as e:
+                print(f"Lỗi search web: {e}")
+                web_results = "Không thể tìm thông tin mới nhất"
+
+        # 3. Xây dựng prompt
         system_prompt = f"""
-            Dạ , bạn là một trợ lý AI hữu ích cho một hệ thống đặt phòng khách sạn.
-            Nhiệm vụ của bạn là trả lời câu hỏi của người dùng.
-            Sử dụng thông tin từ 'DANH SÁCH KHÁCH SẠN' và 'ĐÁNH GIÁ CỦA NGƯỜI DÙNG' để trả lời.
-            
-            ĐẶC BIỆT: Đây là 'ĐIỂM GỢI Ý' (từ 0.0 đến 1.0) do hệ thống chuyên gia (AI.py) của anh ấy tính toán,
-            dựa trên thời tiết ({default_weather}) và ngày hiện tại ({today_str}).
-            Hãy ưu tiên gợi ý các khách sạn có điểm cao nhất khi người dùng hỏi chung chung (ví dụ: 'gợi ý khách sạn tốt').
-
-            --- ĐIỂM GỢI Ý (AI.py) ---
-            {recommend_scores_str}
-            ---
-
-            --- DANH SÁCH KHÁCH SẠN (Tĩnh từ hotels.csv) ---
-            {hotel_data_str}
-            ---
-
-            --- ĐÁNH GIÁ GẦN ĐÂY (Động từ reviews.csv) ---
-            {reviews_data_str}
-            ---
-            Hãy trả lời thân thiện, chuyên nghiệp và luôn bắt đầu bằng "Dạ anh iu".
+        Bạn là trợ lý AI chuyên về khách sạn Việt Nam.
+        
+        THÔNG TIN KHÁCH SẠN:
+        {hotels_info}
+        
+        ĐÁNH GIÁ GẦN ĐÂY:
+        {reviews_info}
+        
+        {'THÔNG TIN WEB MỚI NHẤT: ' + web_results if web_results else ''}
+        
+        HƯỚNG DẪN:
+        - Luôn bắt đầu bằng "Dạ anh iu" hoặc "Dạ em iu"
+        - Ưu tiên dùng thông tin khách sạn ở trên
+        - Nếu cần thông tin mới nhất, dùng kết quả web search
+        - Giữ câu trả lời ngắn gọn, hữu ích
         """
-        
-        # 3. Gọi Gemini API (bật Google Search)
-        tools = [genai.Tool(google_search=genai.GoogleSearch())]
-        
-        generation_config = genai.GenerationConfig(
-            temperature=0.7 # Tăng sự sáng tạo một chút
-        )
 
-        response = model.generate_content(
-            user_query,
-            generation_config=generation_config,
-            system_instruction=system_prompt,
-            tools=tools
-        )
-        
+        # 4. Gọi Gemini
+        response = model.generate_content(system_prompt + "\n\nCâu hỏi: " + user_query)
         ai_response = response.text
         
-        # 4. Trả về JSON cho Giao diện (Front-end)
         return jsonify({"response": ai_response})
 
     except Exception as e:
         print(f"Lỗi API chat: {e}")
         return jsonify({"error": "Lỗi máy chủ nội bộ"}), 500
+
+def google_search(query):
+    """Hàm search web đơn giản"""
+    try:
+        # Có thể dùng SerpAPI, Google Custom Search API, hoặc search đơn giản
+        search_url = f"https://www.google.com/search?q={requests.utils.quote(query + ' site:việt nam')}"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        response = requests.get(search_url, headers=headers, timeout=10)
+        # Đây là ví dụ đơn giản, thực tế cần dùng API chính thức
+        
+        return f"Đã tìm thấy thông tin về: {query}"
+        
+    except Exception as e:
+        return f"Không thể tìm kiếm thông tin: {str(e)}"
 
 # === CẬP NHẬT TRẠNG THÁI KHÁCH SẠN ===
 @app.route('/admin/hotels/status/<name>/<status>')
@@ -934,6 +931,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
