@@ -222,7 +222,16 @@ def read_intro(city_name):
 
     return content
 
-
+# Thêm hàm đọc events
+def read_events():
+    try:
+        events_path = os.path.join(DATA_FOLDER, 'events.csv')
+        if os.path.exists(events_path):
+            return pd.read_csv(events_path, encoding='utf-8-sig')
+        return pd.DataFrame()
+    except Exception as e:
+        print(f"Lỗi đọc events: {e}")
+        return pd.DataFrame()
 
 @app.route("/destinations/<city>")
 def destination(city):
@@ -838,6 +847,12 @@ def api_chat():
             hotels_info = "Không thể đọc dữ liệu"
             reviews_info = "Không thể đọc đánh giá"
 
+        try:
+            events_df = read_events()
+            events_info = events_df.to_string() if not events_df.empty else "Chưa có dữ liệu sự kiện"
+        except Exception as e:
+            events_info = "Không thể đọc sự kiện"
+
         # 2. Kiểm tra nếu cần search web
         need_web_search = any(keyword in user_query.lower() for keyword in 
                             ['thời tiết', 'weather', 'sự kiện', 'event', 'mới nhất', 'cập nhật'])
@@ -861,6 +876,11 @@ def api_chat():
         {reviews_info}
         
         {'THÔNG TIN WEB MỚI NHẤT: ' + web_results if web_results else ''}
+
+        SỰ KIỆN SẮP DIỄN RA:
+        {events_info}
+        
+        Khi người dùng hỏi về sự kiện, lễ hội, hãy dùng thông tin trên để tư vấn.
         
         HƯỚNG DẪN:
         - Luôn bắt đầu bằng "Dạ anh iu" hoặc "Dạ em iu"
@@ -931,10 +951,3 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-
-
-
-
