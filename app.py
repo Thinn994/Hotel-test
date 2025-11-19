@@ -842,15 +842,13 @@ def api_chat():
             
             reviews_df = pd.read_csv("reviews.csv", encoding='utf-8-sig')
             reviews_info = reviews_df[['hotel_name', 'user', 'rating', 'comment']].tail(10).to_string()
+
+            events_df = pd.read_csv("events.csv", encoding='utf-8-sig')
+            events_info = events_df[['event_name', 'city', 'lat', 'lon', 'start_date', 'end_date', 'season']].to_string()
         except Exception as e:
             print(f"Lỗi đọc CSV: {e}")
             hotels_info = "Không thể đọc dữ liệu"
             reviews_info = "Không thể đọc đánh giá"
-
-        try:
-            events_df = read_events()
-            events_info = events_df.to_string() if not events_df.empty else "Chưa có dữ liệu sự kiện"
-        except Exception as e:
             events_info = "Không thể đọc sự kiện"
 
         # 2. Kiểm tra nếu cần search web
@@ -951,3 +949,4 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
