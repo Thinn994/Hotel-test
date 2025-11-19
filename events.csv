@@ -1,0 +1,11 @@
+event_id,event_name,city,lat,lon,start_date,end_date,season
+1,Music Festival,Hanoi,21.03,105.85,2025-03-12,2025-03-15,spring
+2,Beach Party,Da Nang,16.06,108.23,2025-07-10,2025-07-12,summer
+3,Flower Festival,Da Lat,11.94,108.45,2025-12-20,2025-12-25,winter
+4,Marathon,Nha Trang,12.25,109.19,2025-08-05,2025-08-06,summer
+5,Food Fair,Ho Chi Minh City,10.77,106.68,2025-09-01,2025-09-05,autumn
+6,Street Art Carnival,Ho Chi Minh City,10.78,106.70,2025-04-20,2025-04-22,spring
+7,Mid-Autumn Lantern Festival,Hanoi,21.03,105.84,2025-09-10,2025-09-12,autumn
+8,Sea Tourism Week,Nha Trang,12.23,109.20,2025-06-15,2025-06-20,summer
+9,Fireworks Festival,Da Nang,16.05,108.22,2025-06-01,2025-06-02,summer
+10,Tet Flower Market,Ho Chi Minh City,10.77,106.69,2025-01-25,2025-01-31,winter
