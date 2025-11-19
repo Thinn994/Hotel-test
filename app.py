@@ -38,7 +38,7 @@ try:
         print("CẢNH BÁO: GOOGLE_API_KEY chưa được set.")
     
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-flash-preview-09-2025')
+    model = genai.GenerativeModel('gemini-2.5-flash')
 except Exception as e:
     print(f"Lỗi khởi tạo Gemini: {e}")
     model = None # Đặt là None để kiểm tra sau
@@ -925,6 +925,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
