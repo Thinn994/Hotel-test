@@ -71,6 +71,19 @@ def get_discounted_price(rank, base_price):
 # ROUTES
 # -------------------------
 
+# AI
+@app.route('/ai_chat')
+def ai_chat():
+    return render_template('ai_chat_hotel.html')
+
+@app.route('/api/firebase-config')
+def firebase_config():
+    return jsonify({
+        "apiKey": "your-api-key",
+        "authDomain": "your-project.firebaseapp.com",
+        "projectId": "your-project-id"
+    })
+
 # Trang chủ + danh sách khách sạn
 @app.route("/")
 def index():
@@ -921,6 +934,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
