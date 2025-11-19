@@ -1,469 +1,431 @@
 <!DOCTYPE html>
 <html lang="vi">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Hotel Booking Chat</title>
-    <!-- Tải Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Tải Google Font (Inter) -->
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Tải Firebase SDK -->
-    <script type="module">
-        // (Lưu ý: Các key này sẽ được cung cấp tự động trong môi trường Canvas)
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{"apiKey":"DEMO_KEY","authDomain":"demo.firebaseapp.com","projectId":"demo-project"}');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : undefined;
-
-        // Tải các module Firebase cần thiết
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import {
-            getAuth,
-            signInAnonymously,
-            signInWithCustomToken,
-            onAuthStateChanged
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import {
-            getFirestore,
-            doc,
-            getDocs,
-            setDoc,
-            addDoc,
-            collection,
-            onSnapshot,
-            query,
-            setLogLevel
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Khởi tạo Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        setLogLevel('Debug'); 
-
-        let userId = null;
-        let allHotelData = []; 
-        let reviewsData = [];
-
-        // --- UI Elements ---
-        const chatWindow = document.getElementById('chat-window');
-        const chatForm = document.getElementById('chat-form');
-        const chatInput = document.getElementById('chat-input');
-        const hotelInfoDiv = document.getElementById('hotel-info');
-        const seedButton = document.getElementById('seed-button');
-        const reviewsList = document.getElementById('reviews-list');
-        const reviewForm = document.getElementById('review-form');
-        const reviewInput = document.getElementById('review-input');
-        const loadingIndicator = document.getElementById('loading-indicator');
-
-        // --- Firebase Refs ---
-        // Thay đổi: Giờ đây là collection 'hotels'
-        const hotelsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'hotels');
-        const reviewsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'reviews');
-
-        // --- Authentication ---
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                console.log("User authenticated:", user.uid);
-                userId = user.uid;
-                // Sau khi xác thực, bắt đầu lắng nghe dữ liệu
-                setupDataListeners();
-            } else {
-                console.log("User not authenticated. Signing in...");
-                try {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Error signing in:", error);
-                }
-            }
-        });
-
-        // --- Data Listeners (Real-time) ---
-        function setupDataListeners() {
-            if (!userId) {
-                console.log("Auth not ready, delaying data listeners.");
-                return;
-            }
-            console.log("Setting up data listeners...");
-
-            // 1. Lắng nghe dữ liệu "tĩnh" (danh sách khách sạn)
-            const hotelQuery = query(hotelsCollectionRef);
-            onSnapshot(hotelQuery, (querySnapshot) => {
-                allHotelData = []; // Xóa list cũ
-                querySnapshot.forEach((doc) => {
-                    allHotelData.push({ id: doc.id, ...doc.data() });
-                });
-                renderHotelInfo(); // Render lại list khách sạn
-                console.log("All hotel data updated:", allHotelData);
-            }, (error) => {
-                console.error("Error listening to hotels:", error);
-            });
-
-            // 2. Lắng nghe dữ liệu "động" (reviews)
-            const q = query(reviewsCollectionRef);
-            onSnapshot(q, (querySnapshot) => {
-                reviewsData = [];
-                querySnapshot.forEach((doc) => {
-                    reviewsData.push({ id: doc.id, ...doc.data() });
-                });
-                renderReviews();
-                console.log("Reviews updated:", reviewsData);
-            });
-        }
-
-        // --- UI Rendering ---
-        function renderHotelInfo() {
-            if (allHotelData.length === 0) {
-                hotelInfoDiv.innerHTML = `<p class="text-gray-500">Chưa có dữ liệu khách sạn. Hãy nhấn nút "Thêm Dữ Liệu Mẫu".</p>`;
-                return;
-            }
-            // Render danh sách khách sạn
-            hotelInfoDiv.innerHTML = allHotelData.map(hotel => `
-                <div class="p-2 bg-gray-50 rounded-md border mb-2">
-                    <p class="font-medium">${hotel.name} (${hotel.city})</p>
-                    <p class="text-sm">Giá: ${hotel.price.toLocaleString('vi-VN')} VND/đêm</p>
-                    <p class="text-sm">Đánh giá: ${hotel.stars} sao</p>
-                </div>
-            `).join('');
-        }
-
-        function renderReviews() {
-            if (reviewsData.length === 0) {
-                reviewsList.innerHTML = `<p class="text-gray-500 text-sm">Chưa có đánh giá nào.</p>`;
-                return;
-            }
-            reviewsList.innerHTML = reviewsData.map(review => `
-                <div class="p-2 border-b border-gray-200">
-                    <p class="text-sm">${review.text}</p>
-                    <p class="text-xs text-gray-400">Người dùng: ${review.userId.substring(0, 6)}...</p>
-                </div>
-            `).join('');
-        }
-
-        function addMessageToChat(sender, message, isHtml = false) {
-            // ... (Không thay đổi
-            const messageElement = document.createElement('div');
-            messageElement.className = `p-3 my-2 rounded-lg max-w-[80%]`;
-            if (sender === 'user') {
-                messageElement.className += ' bg-blue-500 text-white self-end';
-            } else {
-                messageElement.className += ' bg-gray-200 text-gray-800 self-start';
-            }
-
-            if (isHtml) {
-                messageElement.innerHTML = message;
-            } else {
-                messageElement.textContent = message;
-            }
-            chatWindow.appendChild(messageElement);
-            chatWindow.scrollTop = chatWindow.scrollHeight;
-        }
-
-        // --- Event Handlers ---
-
-        // Nút thêm dữ liệu mẫu (chỉ để demo)
-        seedButton.addEventListener('click', async () => {
-            if (!userId) return;
-
-            // Lấy dữ liệu mẫu TỪ CẤU TRÚC file hotels.csv của anh
-            // ANH CÓ THỂ THÊM/SỬA DỮ LIỆU KHÁCH SẠN CỦA MÌNH TẠI ĐÂY
-            const demoHotels = [
-                {
-                    name: "Hanoi Pearl Hotel",
-                    city: "Hanoi",
-                    price: 950000,
-                    stars: 4,
-                    rating: 4.5,
-                    image_url: "https://dynamic-media-cdn.tripadvisor.com/media/photo-o/0c/15/79/c3/hanoi-pearl-hotel.jpg",
-                    buffet: false,
-                    pool: false,
-                    sea: false,
-                    view: false,
-                    status: "còn",
-                    rooms_available: 10
-                },
-                {
-                    name: "Apricot Hotel",
-                    city: "Hanoi",
-                    price: 2500000,
-                    stars: 5,
-                    rating: 4.8,
-                    image_url: "https://example.com/apricot.jpg",
-                    buffet: true,
-                    pool: true,
-                    sea: false,
-                    view: true,
-                    status: "còn",
-                    rooms_available: 5
-                },
-                {
-                    name: "Dana Pearl Inn",
-                    city: "Da Nang",
-                    price: 700000,
-                    stars: 3,
-                    rating: 4.0,
-                    image_url: "https://example.com/dana.jpg",
-                    buffet: false,
-                    pool: false,
-                    sea: true,
-                    view: true,
-                    status: "còn",
-                    rooms_available: 8
-                },
-                // THÊM KHÁCH SẠN MỚI Ở ĐÂY
-                {
-                    name: "Golden Lotus Hotel",
-                    city: "Ho Chi Minh City", // (Em đoán từ file reviews.csv)
-                    price: 1500000, // Giá ví dụ
-                    stars: 4,
-                    rating: 4.5,
-                    image_url: "https://example.com/golden_lotus.jpg",
-                    buffet: true,
-                    pool: true,
-                    sea: false,
-                    view: true,
-                    status: "còn",
-                    rooms_available: 20
-                }
-            ];
-
-            try {
-                // Thêm từng khách sạn vào collection 'hotels'
-                for (const hotel of demoHotels) {
-                    await addDoc(hotelsCollectionRef, hotel);
-                }
-                console.log("Demo hotel data seeded!");
-            } catch (error) {
-                console.error("Error seeding data:", error);
-            }
-        });
-
-        // Gửi review (dữ liệu động)
-        reviewForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            // ... (Không thay đổi)
-            const text = reviewInput.value.trim();
-            if (!text || !userId) return;
-
-            try {
-                await addDoc(reviewsCollectionRef, {
-                    text: text,
-                    userId: userId,
-                    createdAt: new Date()
-                });
-                reviewInput.value = '';
-                console.log("Review added!");
-            } catch (error) {
-                console.error("Error adding review:", error);
-            }
-        });
-
-        // Gửi tin nhắn chat
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            // ... (Không thay đổi)
-            const userQuery = chatInput.value.trim();
-            if (!userQuery) return;
-
-            addMessageToChat('user', userQuery);
-            chatInput.value = '';
-            loadingIndicator.classList.remove('hidden');
-
-            try {
-                const aiResponse = await getAIResponse(userQuery);
-                addMessageToChat('ai', aiResponse);
-            } catch (error) {
-                console.error("Error getting AI response:", error);
-                addMessageToChat('ai', "Dạ anh iu, em xin lỗi, em gặp lỗi khi xử lý yêu cầu của anh. Anh thử lại sau nhé.");
-            } finally {
-                loadingIndicator.classList.add('hidden');
-            }
-        });
-
-        // --- AI (Gemini) Logic ---
-        async function getAIResponse(userQuery) {
-            // (Lưu ý: API key sẽ được Canvas tự động cung cấp khi để trống)
-            const apiKey = "AIzaSyDEnLhh8fOoacSdyl9jvyiGS6HRSVas01w";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
-            // Đây là phần quan trọng: Xây dựng System Prompt với dữ liệu từ Firestore
-            const systemPrompt = `
-                Dạ, bạn là một trợ lý AI hữu ích cho một hệ thống đặt phòng khách sạn.
-                Nhiệm vụ của bạn là trả lời câu hỏi của người dùng dựa trên thông tin được cung cấp và kiến thức chung của bạn.
-                Sử dụng thông tin từ 'DANH SÁCH KHÁCH SẠN' và 'ĐÁNH GIÁ CỦA NGƯỜI DÙNG' để trả lời các câu hỏi cụ thể về khách sạn (ví dụ: so sánh, tìm kiếm, đề xuất).
-                Đối với các câu hỏi chung (như thời tiết, địa điểm xung quanh), hãy sử dụng công cụ tìm kiếm (Google Search) đã được tích hợp.
-
-                Đây là thông tin hiện tại của khách sạn:
-                --- DANH SÁCH KHÁCH SẠN (Tĩnh) ---
-                ${JSON.stringify(allHotelData, null, 2)}
-
-                --- ĐÁNH GIÁ CỦA NGƯỜI DÙNG GẦN ĐÂY (Động) ---
-                ${JSON.stringify(reviewsData.map(r => r.text), null, 2)}
-                ---
-                Hãy trả lời câu hỏi của người dùng một cách thân thiện, chuyên nghiệp và luôn bắt đầu bằng "Dạ anh iu".
-            `;
-
-            const payload = {
-                contents: [{
-                    parts: [{ text: userQuery }]
-                }],
-                tools: [{ "google_search": {} }],
-                systemInstruction: {
-                    parts: [{ text: systemPrompt }]
-                },
-            };
-
-            // Logic retry (Exponential Backoff)
-            let response;
-            let delay = 1000; 
-            for (let i = 0; i < 5; i++) {
-                try {
-                    response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (response.status === 429 || response.status >= 500) {
-                        // Lỗi do quá tải hoặc lỗi server, đợi và thử lại
-                        await new Promise(res => setTimeout(res, delay));
-                        delay *= 2; // Tăng thời gian chờ
-                        continue;
-                    }
-
-                    if (!response.ok) {
-                        const errorBody = await response.json();
-                        throw new Error(`API error ${response.status}: ${errorBody.error?.message || 'Unknown error'}`);
-                    }
-
-                    const result = await response.json();
-
-                    if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0].text) {
-                        return result.candidates[0].content.parts[0].text;
-                    } else {
-                        throw new Error("Invalid AI response structure.");
-                    }
-                } catch (error) {
-                    console.error(`Attempt ${i + 1} failed:`, error);
-                    if (i === 4) throw error; // Ném lỗi nếu đã thử 5 lần
-                    await new Promise(res => setTimeout(res, delay));
-                    delay *= 2;
-                }
-            }
-            throw new Error("Failed to get AI response after multiple attempts.");
-        }
-
-    </script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
         }
 
-        #chat-window::-webkit-scrollbar {
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            height: 85vh;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-messages {
+            height: calc(100% - 140px);
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            max-width: 80%;
+        }
+
+        .user-message {
+            margin-left: auto;
+        }
+
+        .user-message .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 18px 18px 5px 18px;
+        }
+
+        .bot-message .message-content {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 18px 18px 18px 5px;
+        }
+
+        .message-content {
+            padding: 12px 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .message-sender {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+
+        .message-text {
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .message-time {
+            font-size: 11px;
+            margin-top: 4px;
+            opacity: 0.6;
+            text-align: right;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e1e5e9;
+        }
+
+        .loading-indicator {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        .hotel-card {
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 10px;
+            padding: 12px;
+            margin: 8px 0;
+            transition: all 0.3s ease;
+        }
+
+        .hotel-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .hotel-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 4px;
+        }
+
+        .hotel-info {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .hotel-price {
+            font-weight: 700;
+            color: #e52e71;
+            font-size: 14px;
+        }
+
+        .btn-hotel-detail {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-hotel-detail:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .back-button {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            transform: translateX(-2px);
+        }
+
+        /* Scrollbar styling */
+        .chat-messages::-webkit-scrollbar {
             width: 6px;
         }
 
-        #chat-window::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
-            /* gray-300 */
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
             border-radius: 3px;
         }
 
-        #chat-window::-webkit-scrollbar-track {
-            background-color: #f1f5f9;
-            /* gray-100 */
-        }
-        #hotel-info::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        #hotel-info::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
-            /* gray-300 */
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
             border-radius: 3px;
         }
 
-        #hotel-info::-webkit-scrollbar-track {
-            background-color: #f1f5f9;
-            /* gray-100 */
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
         }
     </style>
 </head>
 
-<body class="bg-gray-100 h-screen p-4 md:p-8">
-    <div class="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+<body>
+    <!-- Back Button -->
+    <a href="/" class="back-button">
+        ← Quay lại trang chủ
+    </a>
 
-        <!-- Cột Dữ liệu (Tĩnh và Động) -->
-        <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg flex flex-col h-full max-h-[90vh]">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Dữ liệu Khách sạn (Firestore)</h2>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-10 col-lg-8">
+                <div class="chat-container">
+                    <!-- Header -->
+                    <div class="chat-header">
+                        <h2 class="mb-2">🤖 AI Hotel Assistant</h2>
+                        <p class="mb-0">Trợ lý thông minh giúp bạn tìm khách sạn phù hợp</p>
+                    </div>
 
-            <!-- Dữ liệu tĩnh -->
-            <div class="mb-4">
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-xl font-semibold">Thông tin (Tĩnh)</h3>
-                    <button id="seed-button"
-                        class="text-xs bg-green-500 text-white px-2 py-1 rounded-md hover:bg-green-600 transition-colors">
-                        Thêm Dữ Liệu Mẫu
-                    </button>
-                </div>
-                <!-- Thay đổi: Thêm overflow-y-auto và max-h-64 để cuộn danh sách khách sạn -->
-                <div id="hotel-info"
-                    class="p-4 bg-gray-50 rounded-lg border border-gray-200 min-h-[100px] overflow-y-auto max-h-64">
-                    <!-- Thông tin khách sạn sẽ được render ở đây -->
-                </div>
-            </div>
+                    <!-- Messages Area -->
+                    <div class="chat-messages" id="chatMessages">
+                        <!-- Welcome message -->
+                        <div class="message bot-message">
+                            <div class="message-content">
+                                <div class="message-sender">AI Assistant</div>
+                                <div class="message-text">
+                                    👋 Chào bạn! Tôi là trợ lý AI thông minh có thể giúp bạn:<br>
+                                    • Tìm khách sạn theo sở thích & ngân sách<br>
+                                    • So sánh giá cả và tiện ích<br>
+                                    • Đề xuất khách sạn phù hợp với nhu cầu<br>
+                                    • Tư vấn địa điểm du lịch<br><br>
+                                    Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
+                                </div>
+                                <div class="message-time" id="welcomeTime"></div>
+                            </div>
+                        </div>
+                    </div>
 
-            <!-- Dữ liệu động (Reviews) -->
-            <div class="flex flex-col flex-grow">
-                <h3 class="text-xl font-semibold mb-2">Đánh giá (Động)</h3>
-                <div id="reviews-list"
-                    class="flex-grow overflow-y-auto bg-gray-50 border border-gray-200 rounded-lg p-3 min-h-[150px]">
-                    <!-- Đánh giá sẽ được render ở đây -->
+                    <!-- Loading Indicator -->
+                    <div class="loading-indicator" id="loadingIndicator">
+                        <div class="loading-dots">
+                            <div class="loading-dot"></div>
+                            <div class="loading-dot"></div>
+                            <div class="loading-dot"></div>
+                        </div>
+                        <span class="text-muted">AI đang suy nghĩ...</span>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="chat-input">
+                        <form id="chatForm" class="d-flex gap-2">
+                            <input type="text" id="chatInput" class="form-control" 
+                                   placeholder="Nhập câu hỏi của bạn... (ví dụ: Tìm khách sạn 5 sao ở Đà Nẵng)" 
+                                   autocomplete="off">
+                            <button type="submit" class="btn btn-primary px-4" id="sendButton">
+                                Gửi
+                            </button>
+                        </form>
+                    </div>
                 </div>
-                <form id="review-form" class="flex mt-3">
-                    <input id="review-input" type="text" placeholder="Viết đánh giá..."
-                        class="flex-grow p-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <button type="submit"
-                        class="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 transition-colors">Gửi</button>
-                </form>
             </div>
         </div>
-
-        <!-- Cột Chat AI -->
-        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg flex flex-col h-full max-h-[90vh]">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Trợ lý AI Khách sạn</h2>
-
-            <!-- Cửa sổ chat -->
-            <div id="chat-window"
-                class="flex-grow overflow-y-auto mb-4 p-2 bg-gray-50 rounded-lg border border-gray-200 flex flex-col space-y-2">
-                <!-- Tin nhắn đầu tiên của AI -->
-                <div class="p-3 my-2 rounded-lg max-w-[80%] bg-gray-200 text-gray-800 self-start">
-                    Dạ anh iu, em có thể giúp gì cho việc đặt phòng của anh hôm nay ạ?
-                </div>
-            </div>
-
-            <div id="loading-indicator" class="hidden flex items-center justify-start space-x-2 mb-2">
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s;"></div>
-                <span class="text-sm text-gray-500">Dạ em đang suy nghĩ...</span>
-            </div>
-
-            <!-- Form nhập liệu -->
-            <form id="chat-form" class="flex">
-                <input id="chat-input" type="text" placeholder="Hỏi AI (ví dụ: khách sạn 5 sao ở Hà Nội)..."
-                    class="flex-grow p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <button type="submit"
-                    class="bg-blue-500 text-white px-6 py-3 rounded-r-lg hover:bg-blue-600 transition-colors font-semibold">Gửi</button>
-            </form>
-        </div>
-
     </div>
-</body>
 
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Set welcome message time
+        document.getElementById('welcomeTime').textContent = getCurrentTime();
+
+        // DOM Elements
+        const chatMessages = document.getElementById('chatMessages');
+        const chatForm = document.getElementById('chatForm');
+        const chatInput = document.getElementById('chatInput');
+        const sendButton = document.getElementById('sendButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+
+        // Get current time for messages
+        function getCurrentTime() {
+            return new Date().toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Add message to chat
+        function addMessage(sender, content, isHtml = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            
+            if (isHtml) {
+                messageContent.innerHTML = `
+                    <div class="message-sender">${sender === 'user' ? 'Bạn' : 'AI Assistant'}</div>
+                    <div class="message-text">${content}</div>
+                    <div class="message-time">${getCurrentTime()}</div>
+                `;
+            } else {
+                messageContent.innerHTML = `
+                    <div class="message-sender">${sender === 'user' ? 'Bạn' : 'AI Assistant'}</div>
+                    <div class="message-text">${content}</div>
+                    <div class="message-time">${getCurrentTime()}</div>
+                `;
+            }
+            
+            messageDiv.appendChild(messageContent);
+            chatMessages.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Extract hotel data from AI response and create cards
+        function createHotelCards(aiResponse) {
+            // This is a simplified version - you might want to enhance this
+            // based on how your AI returns hotel data
+            const hotelPattern = /(\w+.*?)\s*-\s*(\w+.*?)\s*-\s*(\d+)₫/g;
+            let match;
+            let hotels = [];
+            
+            while ((match = hotelPattern.exec(aiResponse)) !== null) {
+                hotels.push({
+                    name: match[1].trim(),
+                    location: match[2].trim(),
+                    price: parseInt(match[3].replace(/\./g, ''))
+                });
+            }
+            
+            if (hotels.length > 0) {
+                let hotelsHTML = '<div class="mt-3"><strong>🏨 Khách sạn đề xuất:</strong></div>';
+                hotels.forEach(hotel => {
+                    hotelsHTML += `
+                        <div class="hotel-card">
+                            <div class="hotel-name">${hotel.name}</div>
+                            <div class="hotel-info">📍 ${hotel.location}</div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="hotel-price">${hotel.price.toLocaleString('vi-VN')}₫</div>
+                                <button class="btn-hotel-detail" 
+                                        onclick="viewHotelDetail('${hotel.name}')">
+                                    Chi tiết
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                return hotelsHTML;
+            }
+            
+            return '';
+        }
+
+        // View hotel details
+        function viewHotelDetail(hotelName) {
+            window.open(`/hotel/${encodeURIComponent(hotelName)}`, '_blank');
+        }
+
+        // Send message to AI
+        async function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // Add user message
+            addMessage('user', message);
+            chatInput.value = '';
+            sendButton.disabled = true;
+            loadingIndicator.style.display = 'flex';
+
+            try {
+                // Call your Flask API
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        query: message  // Using 'query' as expected by your Flask app
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.response) {
+                    // Add AI response
+                    addMessage('bot', data.response, true);
+                    
+                    // Try to create hotel cards from response
+                    const hotelCards = createHotelCards(data.response);
+                    if (hotelCards) {
+                        const hotelSection = document.createElement('div');
+                        hotelSection.innerHTML = hotelCards;
+                        chatMessages.appendChild(hotelSection);
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                } else if (data.error) {
+                    addMessage('bot', `❌ Lỗi: ${data.error}`);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('bot', '❌ Có lỗi xảy ra khi kết nối với AI. Vui lòng thử lại.');
+            } finally {
+                sendButton.disabled = false;
+                loadingIndicator.style.display = 'none';
+                chatInput.focus();
+            }
+        }
+
+        // Event listeners
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            sendMessage();
+        });
+
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Auto-focus input
+        chatInput.focus();
+    </script>
+</body>
 </html>
