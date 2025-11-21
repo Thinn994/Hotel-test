@@ -297,18 +297,13 @@
             messageContent.className = 'message-content';
             
             if (isHtml) {
-                messageContent.innerHTML = `
-                    <div class="message-sender">${sender === 'user' ? 'Bạn' : 'AI Assistant'}</div>
-                    <div class="message-text">${content}</div>
-                    <div class="message-time">${getCurrentTime()}</div>
-                `;
-            } else {
-                messageContent.innerHTML = `
-                    <div class="message-sender">${sender === 'user' ? 'Bạn' : 'AI Assistant'}</div>
-                    <div class="message-text">${content}</div>
-                    <div class="message-time">${getCurrentTime()}</div>
-                `;
-            }
+                messageBody = content.replace(/\n/g, '<br>');
+            } 
+            messageContent.innerHTML = `
+                <div class="message-sender">${sender === 'user' ? 'Bạn' : 'AI Assistant'}</div>
+                <div class="message-text">${content}</div>
+                <div class="message-time">${getCurrentTime()}</div>
+            ;
             
             messageDiv.appendChild(messageContent);
             chatMessages.appendChild(messageDiv);
