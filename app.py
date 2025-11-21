@@ -840,7 +840,7 @@ def api_chat():
             hotels_df = pd.read_csv("hotels.csv", encoding='utf-8-sig')
             
             # Format hotels info với đầy đủ tiêu chí
-            hotels_list = []
+            hotels_lines = []
             for _, hotel in hotels_df.iterrows():
                 # Xử lý các tiêu chí boolean
                 amenities = []
@@ -859,26 +859,30 @@ def api_chat():
                 
                 amenities_str = ", ".join(amenities) if amenities else "Không có tiện ích đặc biệt"
                 
-                hotels_list.append(f"- {hotel['name']} ({hotel['city']})")
-                hotels_list.append(f"  ⭐ {hotel['stars']} sao | 💰 {hotel['price']:,.0f} VND")
-                hotels_list.append(f"  🏷️ {amenities_str}")
-                hotels_list.append("")  # Dòng trống để phân cách
+                hotels_lines.append(f"- {hotel['name']} ({hotel['city']})")
+                hotels_lines.append(f"  ⭐ {hotel['stars']} sao | 💰 {hotel['price']:,.0f} VND")
+                hotels_lines.append(f"  🏷️ {amenities_str}")
+                hotels_lines.append("")  # Dòng trống để phân cách
                 
-            hotels_info = "\n".join(hotels_list[:40])  # Giới hạn số lượng
+            hotels_info = "\n".join(hotels_lines)  # Giới hạn số lượng
             
             # Đọc reviews
             reviews_df = pd.read_csv("reviews.csv", encoding='utf-8-sig')
-            reviews_list = []
-            for _, review in reviews_df.tail(5).iterrows():
-                reviews_list.append(f"- {review['user']}: ⭐{review['rating']}/5 - {review['comment'][:100]}...")
-            reviews_info = "\n".join(reviews_list)
+            reviews_lines = []
+            for _, review in reviews_df.tail(3).iterrows():  # 3 reviews gần nhất
+                reviews_lines.append(f"- {review['user']}: ⭐{review['rating']}/5")
+                reviews_lines.append(f"  \"{review['comment'][:80]}...\"")
+                reviews_lines.append("")
+            reviews_info = "\n".join(reviews_lines)
             
             # Đọc events
             events_df = pd.read_csv("events.csv", encoding='utf-8-sig')
-            events_list = []
-            for _, event in events_df.iterrows():
-                events_list.append(f"- {event['event_name']} tại {event['city']} ({event['start_date']} đến {event['end_date']})")
-            events_info = "\n".join(events_list)
+            events_lines = []
+            for _, event in events_df.head(5).iterrows():  # 5 events gần nhất
+                events_lines.append(f"- {event['event_name']}")
+                events_lines.append(f"  📍 {event['city']} | 🗓️ {event['start_date']} đến {event['end_date']}")
+                events_lines.append("")
+            events_info = "\n".join(events_lines)
             
         except Exception as e:
             print(f"Lỗi đọc CSV: {e}")
@@ -912,9 +916,14 @@ HƯỚNG DẪN QUAN TRỌNG:
 - Luôn tham khảo đúng thông tin tiện ích từ dữ liệu khách sạn
 
 Ví dụ cách trả lời về tiện ích:
-"Tôi tìm thấy một số khách sạn có hồ bơi tại Đà Nẵng:
-- Khách sạn A: có 🏊 Hồ bơi, 🍽️ Buffet
-- Khách sạn B: có 🏊 Hồ bơi, 💆 Spa"
+"Tôi tìm thấy một số khách sạn phù hợp:
+• Khách sạn A (Đà Nẵng)
+  ⭐ 4 sao | 💰 2,500,000 VND
+  🏷️ 🏊 Hồ bơi, 🍽️ Buffet, 🌊 View biển
+
+• Khách sạn B (Hà Nội)  
+  ⭐ 5 sao | 💰 3,200,000 VND
+  🏷️ 💪 Gym, 💆 Spa, 🍹 Bar
 
 Hãy trả lời câu hỏi dựa trên dữ liệu khách sạn ở trên.
 """
@@ -1012,6 +1021,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
