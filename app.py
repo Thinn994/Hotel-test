@@ -864,7 +864,7 @@ def api_chat():
                 hotels_lines.append(f"  🏷️ {amenities_str}")
                 hotels_lines.append("")  # Dòng trống để phân cách
                 
-            hotels_info = "\n".join(hotels_lines)  # Giới hạn số lượng
+            hotels_info = "\n".join(hotels_lines[:40])  # Giới hạn số lượng
             
             # Đọc reviews
             reviews_df = pd.read_csv("reviews.csv", encoding='utf-8-sig')
@@ -1021,6 +1021,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
