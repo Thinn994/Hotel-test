@@ -838,64 +838,124 @@ def api_chat():
         # 1. Đọc dữ liệu từ CSV
         try:
             hotels_df = pd.read_csv("hotels.csv", encoding='utf-8-sig')
-            hotels_info = hotels_df[['name', 'city', 'price', 'stars', 'rating']].to_string()
             
+            # Format hotels info với đầy đủ tiêu chí
+            hotels_list = []
+            for _, hotel in hotels_df.iterrows():
+                # Xử lý các tiêu chí boolean
+                amenities = []
+                if str(hotel.get('pool', '')).lower() in ['true', '1', 'yes']:
+                    amenities.append("🏊 Hồ bơi")
+                if str(hotel.get('buffet', '')).lower() in ['true', '1', 'yes']:
+                    amenities.append("🍽️ Buffet")
+                if str(hotel.get('gym', '')).lower() in ['true', '1', 'yes']:
+                    amenities.append("💪 Gym")
+                if str(hotel.get('spa', '')).lower() in ['true', '1', 'yes']:
+                    amenities.append("💆 Spa")
+                if str(hotel.get('sea_view', '')).lower() in ['true', '1', 'yes'] or str(hotel.get('sea', '')).lower() in ['true', '1', 'yes']:
+                    amenities.append("🌊 View biển")
+                if str(hotel.get('bar', '')).lower() in ['true', '1', 'yes']:
+                    amenities.append("🍹 Bar")
+                
+                amenities_str = ", ".join(amenities) if amenities else "Không có tiện ích đặc biệt"
+                
+                hotels_list.append(f"- {hotel['name']} ({hotel['city']})")
+                hotels_list.append(f"  ⭐ {hotel['stars']} sao | 💰 {hotel['price']:,.0f} VND")
+                hotels_list.append(f"  🏷️ {amenities_str}")
+                hotels_list.append("")  # Dòng trống để phân cách
+                
+            hotels_info = "\n".join(hotels_list[:40])  # Giới hạn số lượng
+            
+            # Đọc reviews
             reviews_df = pd.read_csv("reviews.csv", encoding='utf-8-sig')
-            reviews_info = reviews_df[['hotel_name', 'user', 'rating', 'comment']].tail(10).to_string()
-
+            reviews_list = []
+            for _, review in reviews_df.tail(5).iterrows():
+                reviews_list.append(f"- {review['user']}: ⭐{review['rating']}/5 - {review['comment'][:100]}...")
+            reviews_info = "\n".join(reviews_list)
+            
+            # Đọc events
             events_df = pd.read_csv("events.csv", encoding='utf-8-sig')
-            events_info = events_df[['event_name', 'city', 'lat', 'lon', 'start_date', 'end_date', 'season']].to_string()
+            events_list = []
+            for _, event in events_df.iterrows():
+                events_list.append(f"- {event['event_name']} tại {event['city']} ({event['start_date']} đến {event['end_date']})")
+            events_info = "\n".join(events_list)
+            
         except Exception as e:
             print(f"Lỗi đọc CSV: {e}")
-            hotels_info = "Không thể đọc dữ liệu"
+            hotels_info = "Không thể đọc dữ liệu khách sạn"
             reviews_info = "Không thể đọc đánh giá"
             events_info = "Không thể đọc sự kiện"
 
-        # 2. Kiểm tra nếu cần search web
-        need_web_search = any(keyword in user_query.lower() for keyword in 
-                            ['thời tiết', 'weather', 'sự kiện', 'event', 'mới nhất', 'cập nhật'])
-
-        web_results = ""
-        if need_web_search:
-            try:
-                web_results = google_search(user_query)
-            except Exception as e:
-                print(f"Lỗi search web: {e}")
-                web_results = "Không thể tìm thông tin mới nhất"
-
-        # 3. Xây dựng prompt
+        # 3. Xây dựng prompt mới
         system_prompt = f"""
-        Bạn là trợ lý AI chuyên về khách sạn Việt Nam.
-        
-        THÔNG TIN KHÁCH SẠN:
-        {hotels_info}
-        
-        ĐÁNH GIÁ GẦN ĐÂY:
-        {reviews_info}
-        
-        {'THÔNG TIN WEB MỚI NHẤT: ' + web_results if web_results else ''}
+Bạn là một trợ lý du lịch chuyên nghiệp cho hệ thống đặt phòng khách sạn.
 
-        SỰ KIỆN SẮP DIỄN RA:
-        {events_info}
-        
-        Khi người dùng hỏi về sự kiện, lễ hội, hãy dùng thông tin trên để tư vấn.
-        
-        HƯỚNG DẪN:
-        - Luôn bắt đầu bằng "Dạ anh iu" hoặc "Dạ em iu"
-        - Ưu tiên dùng thông tin khách sạn ở trên
-        - Nếu cần thông tin mới nhất, dùng kết quả web search
-        - Giữ câu trả lời ngắn gọn, hữu ích
-        """
+DỮ LIỆU HIỆN CÓ:
 
-        # 4. Gọi Gemini
-        response = model.generate_content(system_prompt + "\n\nCâu hỏi: " + user_query)
-        ai_response = response.text
-        
-        return jsonify({"response": ai_response})
+🏨 DANH SÁCH KHÁCH SẠN (với đầy đủ tiện ích):
+{hotels_info}
+
+📝 ĐÁNH GIÁ GẦN ĐÂY:
+{reviews_info}
+
+🎪 SỰ KIỆN SẮP TỚI:
+{events_info}
+
+HƯỚNG DẪN QUAN TRỌNG:
+- Khi người dùng hỏi về tiện ích (hồ bơi, buffet, gym, spa, view biển, bar), hãy dùng thông tin từ cột "TIỆN ÍCH" ở trên
+- Các tiện ích được hiển thị bằng icon: 🏊=hồ bơi, 🍽️=buffet, 💪=gym, 💆=spa, 🌊=view biển, 🍹=bar
+- Trả lời tự nhiên, xưng "tôi" và gọi người dùng là "bạn"
+- Format rõ ràng với xuống dòng, không dùng markdown
+- Luôn tham khảo đúng thông tin tiện ích từ dữ liệu khách sạn
+
+Ví dụ cách trả lời về tiện ích:
+"Tôi tìm thấy một số khách sạn có hồ bơi tại Đà Nẵng:
+- Khách sạn A: có 🏊 Hồ bơi, 🍽️ Buffet
+- Khách sạn B: có 🏊 Hồ bơi, 💆 Spa"
+
+Hãy trả lời câu hỏi dựa trên dữ liệu khách sạn ở trên.
+"""
+
+        # 4. Gọi Gemini với retry logic
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                response = model.generate_content(
+                    system_prompt + "\n\nCâu hỏi của người dùng: " + user_query,
+                    generation_config=genai.GenerationConfig(
+                        temperature=0.7,
+                        max_output_tokens=1000
+                    )
+                )
+                ai_response = response.text
+                
+                # Clean up response
+                cleaned_response = ai_response.replace('**', '').replace('*', '')
+                return jsonify({"response": cleaned_response})
+                
+            except Exception as e:
+                if "quota" in str(e).lower() or "429" in str(e):
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt
+                        print(f"Quota exceeded, retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        return jsonify({"error": "Hệ thống đang quá tải. Vui lòng thử lại sau 1 phút."}), 429
+                else:
+                    raise e
+
+        return jsonify({"error": "Lỗi kết nối. Vui lòng thử lại."}), 500
 
     except Exception as e:
         print(f"Lỗi API chat: {e}")
-        return jsonify({"error": "Lỗi máy chủ nội bộ"}), 500
+        fallback_responses = [
+            "Hiện tại hệ thống AI đang gặp sự cố kỹ thuật. Bạn có thể sử dụng tính năng tìm kiếm khách sạn với bộ lọc tiện ích (hồ bơi, buffet, spa) trên trang chủ.",
+            "Xin lỗi, tôi đang gặp vấn đề kết nối. Bạn có thể tìm khách sạn theo tiện ích mong muốn bằng công cụ tìm kiếm thông thường.",
+            "Hệ thống trợ lý AI tạm thời không khả dụng. Bạn vui lòng sử dụng bộ lọc trên trang chủ để tìm khách sạn có các tiện ích như hồ bơi, buffet, spa theo nhu cầu."
+        ]
+        import random
+        return jsonify({"response": random.choice(fallback_responses)})
 
 def google_search(query):
     """Hàm search web đơn giản"""
@@ -949,4 +1009,5 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
