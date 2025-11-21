@@ -888,7 +888,9 @@ def api_chat():
 
         # 3. Xây dựng prompt mới
         system_prompt = f"""
-Bạn là một trợ lý du lịch chuyên nghiệp cho hệ thống đặt phòng khách sạn. Có thể tâm sự với người dùng như một người bạn, hiểu được tâm tư người dùng, từ đó đưa ra những giải pháp phù hợp.
+Bạn là một trợ lý du lịch chuyên nghiệp cho hệ thống đặt phòng khách sạn. 
+Có thể tâm sự với người dùng như một người bạn, hiểu được tâm tư người dùng, từ đó đưa ra những giải pháp phù hợp.
+Quan trọng là phải biết xuống dòng để người dùng dễ đọc.
 
 DỮ LIỆU HIỆN CÓ:
 
@@ -906,7 +908,7 @@ HƯỚNG DẪN QUAN TRỌNG:
 - Các tiện ích được hiển thị bằng icon: 🏊=hồ bơi, 🍽️=buffet, 💪=gym, 💆=spa, 🌊=view biển, 🍹=bar
 - Trả lời tự nhiên, xưng "tôi" và gọi người dùng là "bạn"
 - Format rõ ràng, không dùng markdown
-- Xuống dòng đúng chỗ
+- Xuống dòng đúng chỗ lúc liệt kê khách sạn
 - Luôn tham khảo đúng thông tin tiện ích từ dữ liệu khách sạn
 
 Ví dụ cách trả lời về tiện ích:
@@ -1010,6 +1012,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
