@@ -85,7 +85,7 @@
             font-size: 14px;
             line-height: 1.5;
             word-wrap: break-word;
-            white-space: pre-line; /* QUAN TRỌNG: Giữ nguyên xuống dòng */
+            white-space: pre-line;
         }
 
         .message-time {
@@ -410,42 +410,79 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // Check if AI response contains hotel recommendations
+        // Check if AI response contains actual hotel listings (not just mentions)
         function shouldShowHotelCards(aiResponse) {
-            const hotelKeywords = [
-                'khách sạn', 'hotel', 'resort', 'nhà nghỉ', 
-                'đề xuất', 'gợi ý', 'tìm thấy', 'phù hợp',
-                '⭐', '💰', '🏊', '🍽️', '💪', '💆', '🌊'
+            const lines = aiResponse.split('\n');
+            let hotelListCount = 0;
+            
+            // Patterns that indicate actual hotel listings
+            const listingPatterns = [
+                /^[•\-]\s*.+?(?=\s*⭐|\s*💰|$)/, // • Hotel Name ⭐
+                /^.+\s*⭐\s*\d/, // Hotel Name ⭐ 5
+                /^.+\s*💰\s*[\d,]+/, // Hotel Name 💰 2,000,000
+                /^[•\-]\s*.+?\(.+?\)/, // • Hotel Name (City)
             ];
             
-            const lowerResponse = aiResponse.toLowerCase();
-            return hotelKeywords.some(keyword => lowerResponse.includes(keyword.toLowerCase()));
+            for (let line of lines) {
+                line = line.trim();
+                // Check if this line looks like a hotel listing
+                const isListing = listingPatterns.some(pattern => pattern.test(line));
+                
+                if (isListing) {
+                    hotelListCount++;
+                }
+                
+                // If we found at least 2 hotel listings, consider it a proper list
+                if (hotelListCount >= 2) {
+                    return true;
+                }
+            }
+            
+            return false;
         }
 
-        // Extract hotel names from AI response
+        // Extract hotel names from AI response (only from actual listings)
         function extractHotelNames(aiResponse) {
             const lines = aiResponse.split('\n');
             const hotelNames = [];
-            const hotelPatterns = [
-                /[•\-]\s*([^⭐💰(]+)/, // Pattern: • Hotel Name
-                /^([^⭐💰•\-].+?)(?=\s*⭐|\s*💰|$)/, // Pattern: Hotel Name (start of line)
+            
+            // Patterns to extract hotel names from listings
+            const extractPatterns = [
+                /^[•\-]\s*([^⭐💰(]+)/, // • Hotel Name
+                /^([^⭐💰•\-].+?)(?=\s*⭐|\s*💰|$)/, // Hotel Name (start of line before icons)
             ];
 
             for (let line of lines) {
                 line = line.trim();
                 
-                for (let pattern of hotelPatterns) {
+                // Skip lines that are clearly not hotel listings
+                if (line.includes('Tôi') || 
+                    line.includes('Bạn') || 
+                    line.includes('Dựa') || 
+                    line.includes('Ví dụ') ||
+                    line.includes('sau đây') ||
+                    line.includes('gợi ý') ||
+                    line.length < 5) {
+                    continue;
+                }
+                
+                for (let pattern of extractPatterns) {
                     const match = line.match(pattern);
                     if (match) {
-                        const hotelName = match[1].trim();
-                        // Filter out obvious non-hotel names
+                        let hotelName = match[1].trim();
+                        
+                        // Clean up the hotel name
+                        hotelName = hotelName
+                            .replace(/^[•\-]\s*/, '') // Remove bullet points
+                            .replace(/\s*\(.*?\)$/, '') // Remove city in parentheses
+                            .trim();
+                        
+                        // Validate it's a reasonable hotel name
                         if (hotelName && 
-                            !hotelName.includes('Tôi') && 
-                            !hotelName.includes('Bạn') &&
-                            !hotelName.includes('Dựa') &&
-                            !hotelName.includes('Ví dụ') &&
-                            hotelName.length > 3 &&
-                            hotelName.length < 50) {
+                            hotelName.length > 2 && 
+                            hotelName.length < 50 &&
+                            !hotelName.match(/^\d/)) { // Doesn't start with number
+                            
                             hotelNames.push(hotelName);
                             break;
                         }
@@ -458,6 +495,7 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
 
         // Create hotel cards from AI response
         function createHotelCards(aiResponse) {
+            // Only show cards if AI actually listed hotels
             if (!shouldShowHotelCards(aiResponse)) {
                 return '';
             }
@@ -469,7 +507,7 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                 
                 hotelNames.slice(0, 5).forEach(hotelName => {
                     // Clean hotel name for URL
-                    const cleanHotelName = hotelName.replace(/[^\w\s]/gi, '').trim();
+                    const cleanHotelName = hotelName.replace(/[^\w\sÀ-ỹ]/gi, '').trim();
                     
                     hotelsHTML += `
                         <div class="hotel-card">
@@ -523,7 +561,7 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                     // Add AI response
                     addMessage('bot', data.response);
                     
-                    // Try to create hotel cards from response (only if it contains hotel recommendations)
+                    // Only create hotel cards if AI actually listed hotels
                     const hotelCards = createHotelCards(data.response);
                     if (hotelCards) {
                         const hotelSection = document.createElement('div');
