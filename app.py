@@ -951,7 +951,9 @@ QUY TẮC TRẢ LỜI:
    - Kết hợp tư vấn địa điểm và kinh nghiệm
 
 FORMAT KHI ĐỀ XUẤT KHÁCH SẠN:
-- Mô tả tự nhiên, không cứng nhắc
+- Chỉ chào khi người dùng vừa vào ứng dụng, không chào ở những câu trả lời sau đó
+- Mô tả tự nhiên nhưng ngắn gọn, không cứng nhắc
+- Ghi nhớ nội dung trước đó để không bị lạc chủ đề
 - Highlight điểm nổi bật của từng khách sạn
 - So sánh nhẹ giữa các lựa chọn
 - Luôn kết thúc bằng câu chuyển tiếp mượt mà
@@ -1111,6 +1113,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
