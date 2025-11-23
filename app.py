@@ -832,103 +832,134 @@ def api_chat():
         
     try:
         user_query = request.json.get('query')
+        include_hotels = request.json.get('include_hotels', True)
+        
         if not user_query:
             return jsonify({"error": "Missing query"}), 400
 
-        # 1. Đọc dữ liệu từ CSV
+        # 1. Đọc và xử lý dữ liệu từ CSV
+        hotels_data = []
+        reviews_data = []
+        events_data = []
+        
         try:
+            # Đọc hotels.csv
             hotels_df = pd.read_csv("hotels.csv", encoding='utf-8-sig')
-            
-            # Format hotels info đơn giản hơn - CHỈ TÊN & THÀNH PHỐ
-            hotels_list = []
             for _, hotel in hotels_df.iterrows():
-                hotels_list.append(f"{hotel['name']} ({hotel['city']})")
-            hotels_info = "\n".join(hotels_list)
+                hotel_info = {
+                    'name': hotel.get('name', ''),
+                    'city': hotel.get('city', ''),
+                    'district': hotel.get('district', 'Trung tâm'),
+                    'price': hotel.get('price', 'Liên hệ'),
+                    'rating': hotel.get('rating', 4.0),
+                    'amenities': hotel.get('amenities', 'WiFi, Restaurant, Pool'),
+                    'description': hotel.get('description', 'Khách sạn chất lượng với đầy đủ tiện ích')
+                }
+                hotels_data.append(hotel_info)
             
-            # Đọc reviews
+            # Đọc reviews.csv
             reviews_df = pd.read_csv("reviews.csv", encoding='utf-8-sig')
-            reviews_list = []
-            for _, review in reviews_df.tail(5).iterrows():
-                reviews_list.append(f"{review['hotel_name']}: {review['user']} - ⭐{review['rating']} - {review['comment'][:100]}")
-            reviews_info = "\n".join(reviews_list)
+            for _, review in reviews_df.iterrows():
+                review_info = {
+                    'hotel_name': review.get('hotel_name', ''),
+                    'user': review.get('user', 'Khách hàng'),
+                    'rating': review.get('rating', 4.5),
+                    'comment': review.get('comment', 'Trải nghiệm tuyệt vời!')
+                }
+                reviews_data.append(review_info)
             
-            # Đọc events
+            # Đọc events.csv
             events_df = pd.read_csv("events.csv", encoding='utf-8-sig')
-            events_list = []
             for _, event in events_df.iterrows():
-                events_list.append(f"{event['event_name']} tại {event['city']} ({event['start_date']} đến {event['end_date']}) - Mùa: {event.get('season', 'Không xác định')}")
-            events_info = "\n".join(events_list)
-            
+                event_info = {
+                    'event_name': event.get('event_name', ''),
+                    'city': event.get('city', ''),
+                    'start_date': event.get('start_date', ''),
+                    'end_date': event.get('end_date', ''),
+                    'season': event.get('season', 'Không xác định')
+                }
+                events_data.append(event_info)
+                
         except Exception as e:
             print(f"Lỗi đọc CSV: {e}")
-            hotels_info = "Không thể đọc dữ liệu khách sạn"
-            reviews_info = "Không thể đọc đánh giá"
-            events_info = "Không thể đọc sự kiện"
+            # Fallback data với các khách sạn mẫu
+            hotels_data = [
+                {
+                    'name': 'Sunrise Nha Trang',
+                    'city': 'Nha Trang',
+                    'district': 'Trần Phú',
+                    'price': '2,500,000 VNĐ',
+                    'rating': 4.8,
+                    'amenities': 'Pool, Spa, Beach Front, Restaurant, Bar',
+                    'description': 'Khách sạn 5 sao view biển tuyệt đẹp với hồ bơi vô cực'
+                },
+                {
+                    'name': 'Mường Thanh Đà Nẵng',
+                    'city': 'Đà Nẵng',
+                    'district': 'Sơn Trà',
+                    'price': '1,800,000 VNĐ',
+                    'rating': 4.5,
+                    'amenities': 'Pool, Gym, Restaurant, Kids Club',
+                    'description': 'Khách sạn hiện đại gần biển Mỹ Khê'
+                },
+                {
+                    'name': 'Intercontinental Hanoi',
+                    'city': 'Hà Nội',
+                    'district': 'Ba Đình',
+                    'price': '3,500,000 VNĐ',
+                    'rating': 4.9,
+                    'amenities': 'Spa, Pool, Fine Dining, Bar',
+                    'description': 'Khách sạn sang trọng bậc nhất tại trung tâm Hà Nội'
+                }
+            ]
 
-        # 3. Xây dựng prompt TOÀN DIỆN và LINH HOẠT
+        # 2. Phân tích câu hỏi để xác định có cần đề xuất khách sạn không
+        need_hotel_recommendation = any(keyword in user_query.lower() for keyword in [
+            'tìm khách sạn', 'đề xuất khách sạn', 'khách sạn nào', 'ở đâu',
+            'tìm chỗ ở', 'booking', 'đặt phòng', 'recommend', 'suggest', 'hotel',
+            'nghỉ ở đâu', 'chỗ ở', 'khách sạn', 'resort', 'nhà nghỉ'
+        ])
+
+        # 3. Xây dựng prompt thông minh
         system_prompt = f"""
-Bạn là một trợ lý du lịch TOÀN DIỆN có thể xử lý MỌI loại câu hỏi về khách sạn, du lịch, sự kiện, và cả tâm trạng.
-Có thể tâm sự như một người bạn genz.
+Bạn là trợ lý du lịch THÔNG MINH. Hãy PHÂN TÍCH câu hỏi và đưa ra câu trả lời PHÙ HỢP NHẤT.
 
 DỮ LIỆU HIỆN CÓ:
-
-🏨 TOÀN BỘ KHÁCH SẠN (Tên & Thành phố):
-{hotels_info}
-
-📝 ĐÁNH GIÁ GẦN ĐÂY:
-{reviews_info}
-
-🎪 SỰ KIỆN & MÙA:
-{events_info}
-
-HƯỚNG DẪN XỬ LÝ CÁC LOẠI CÂU HỎI:
-
-1. CÂU HỎI VỀ TÂM TRẠNG (buồn, vui, stress, v.v.):
-   - ĐẦU TIÊN: Thấu hiểu và đồng cảm
-   - PHÂN TÍCH: Nhu cầu thực sự ẩn sau cảm xúc
-   - ĐỀ XUẤT: Khách sạn phù hợp với tâm trạng
-   - VÍ DỤ: Buồn → spa, yên tĩnh; Vui → bar, hồ bơi
-
-2. CÂU HỎI VỀ MÙA & SỰ KIỆN:
-   - KIỂM TRA: Sự kiện trong events.csv
-   - TƯ VẤN: Mùa nào đẹp, sự kiện gì diễn ra
-   - KẾT HỢP: Đề xuất khách sạn gần sự kiện
-
-3. CÂU HỎI VỀ KHÁCH SẠN CỤ THỂ:
-   - TÌM KIẾM: Thông tin khách sạn trong danh sách
-   - MÔ TẢ: Đặc điểm, tiện ích nếu có trong dữ liệu
-   - SO SÁNH: Với các khách sạn khác cùng khu vực
-
-4. CÂU HỎI CHUNG VỀ DU LỊCH:
-   - SỬ DỤNG: Kiến thức du lịch tổng hợp
-   - KẾT HỢP: Với dữ liệu khách sạn hiện có
-   - ĐỀ XUẤT: Dựa trên ngân sách, sở thích
+- {len(hotels_data)} khách sạn với đầy đủ thông tin
+- {len(reviews_data)} đánh giá từ khách hàng  
+- {len(events_data)} sự kiện & mùa du lịch
 
 QUY TẮC TRẢ LỜI:
-- LUÔN bắt đầu bằng sự thấu hiểu với người dùng
-- PHÂN TÍCH loại câu hỏi trước khi trả lời
-- SỬ DỤNG dữ liệu từ CSV khi có thông tin phù hợp
-- LIỆT KÊ khách sạn RÕ RÀNG khi cần đề xuất kèm theo card
-- KHÔNG bịa thông tin không có trong dữ liệu
-- Nếu không có dữ liệu, dùng kiến thức chung và nói rõ
+1. Nếu người dùng hỏi về TÌM KIẾM KHÁCH SẠN:
+   - PHÂN TÍCH nhu cầu: vị trí, ngân sách, loại hình
+   - ĐỀ XUẤT 1-3 khách sạn PHÙ HỢP NHẤT từ dữ liệu
+   - MÔ TẢ chi tiết từng khách sạn: vị trí, giá, tiện ích, đánh giá
+   - Kết thúc bằng: "Đây là những khách sạn phù hợp với yêu cầu của bạn!"
 
-VÍ DỤ XỬ LÝ CÁC TÌNH HUỐNG:
+2. Nếu hỏi về TÂM TRẠNG/CẢM XÚC:
+   - ĐỒNG CẢM trước
+   - PHÂN TÍCH nhu cầu ẩn sau cảm xúc
+   - ĐỀ XUẤT khách sạn phù hợp với tâm trạng
 
-"Sunrise Nha Trang thì tôi nên đi vào những mùa nào, có sự kiện gì gần đó không":
-→ "Sunrise Nha Trang là một lựa chọn tuyệt vời! Về mùa du lịch:
-- Tháng 2-8: Mùa khô, nắng đẹp, biển trong
-- Tháng 9-1: Có mưa nhưng ít khách du lịch
+3. Nếu hỏi về SỰ KIỆN/MÙA:
+   - KIỂM TRA sự kiện trong dữ liệu
+   - ĐỀ XUẤT khách sạn gần sự kiện
+   - TƯ VẤN thời điểm thích hợp
 
-Sự kiện gần đó:
-• Carnival Biển Nha Trang (tháng 6)
-• Lễ hội Ẩm thực Biển (tháng 8)
+4. Nếu hỏi CHUNG CHUNG về du lịch:
+   - TỰ ĐỘNG đề xuất khách sạn nổi bật
+   - Kết hợp tư vấn địa điểm và kinh nghiệm
 
-Bạn có muốn tôi tìm thêm khách sạn tương tự không?"
+FORMAT KHI ĐỀ XUẤT KHÁCH SẠN:
+- Mô tả tự nhiên, không cứng nhắc
+- Highlight điểm nổi bật của từng khách sạn
+- So sánh nhẹ giữa các lựa chọn
+- Luôn kết thúc bằng câu chuyển tiếp mượt mà
 
-Hãy PHÂN TÍCH kỹ câu hỏi và đưa ra câu trả lời PHÙ HỢP NHẤT!
+Hãy trả lời TỰ NHIÊN như một chuyên gia du lịch!
 """
 
-        # 4. Gọi Gemini với retry logic
+        # 4. Gọi Gemini
         max_retries = 2
         for attempt in range(max_retries):
             try:
@@ -936,14 +967,24 @@ Hãy PHÂN TÍCH kỹ câu hỏi và đưa ra câu trả lời PHÙ HỢP NHẤT
                     system_prompt + "\n\nCâu hỏi của người dùng: " + user_query,
                     generation_config=genai.GenerationConfig(
                         temperature=0.8,
-                        max_output_tokens=1500
+                        max_output_tokens=2000
                     )
                 )
                 ai_response = response.text
                 
                 # Clean up response
                 cleaned_response = ai_response.replace('**', '').replace('*', '')
-                return jsonify({"response": cleaned_response})
+                
+                # Chuẩn bị dữ liệu khách sạn để trả về
+                response_data = {"response": cleaned_response}
+                
+                # Chỉ trả về hotel data nếu AI thực sự đề xuất khách sạn
+                if need_hotel_recommendation and include_hotels:
+                    # Lọc khách sạn phù hợp dựa trên query
+                    recommended_hotels = filter_hotels_by_query(hotels_data, reviews_data, user_query)
+                    response_data["hotels"] = recommended_hotels[:3]  # Tối đa 3 khách sạn
+                
+                return jsonify(response_data)
                 
             except Exception as e:
                 if "quota" in str(e).lower() or "429" in str(e):
@@ -961,12 +1002,62 @@ Hãy PHÂN TÍCH kỹ câu hỏi và đưa ra câu trả lời PHÙ HỢP NHẤT
 
     except Exception as e:
         print(f"Lỗi API chat: {e}")
-        fallback_responses = [
-            "Hiện tại hệ thống đang gặp sự cố kỹ thuật. Tôi vẫn muốn lắng nghe và hỗ trợ bạn. Hãy thử lại sau ít phút nhé!",
-            "Xin lỗi, tôi đang gặp vấn đề kết nối. Dù vậy, tôi luôn sẵn sàng hỗ trợ bạn. Hãy thử lại sau hoặc dùng tính năng tìm kiếm thông thường.",
-        ]
-        import random
-        return jsonify({"response": random.choice(fallback_responses)})
+        return jsonify({"response": "Hiện tại hệ thống đang gặp sự cố kỹ thuật. Tôi vẫn muốn lắng nghe và hỗ trợ bạn. Hãy thử lại sau ít phút nhé!"})
+
+def filter_hotels_by_query(hotels_data, reviews_data, user_query):
+    """Lọc khách sạn phù hợp dựa trên query của người dùng"""
+    filtered_hotels = []
+    
+    query_lower = user_query.lower()
+    
+    for hotel in hotels_data:
+        score = 0
+        
+        # Kiểm tra thành phố
+        if 'city' in hotel and hotel['city'].lower() in query_lower:
+            score += 3
+            
+        # Kiểm tra khu vực/quận
+        if 'district' in hotel and any(district in query_lower for district in hotel['district'].lower().split()):
+            score += 2
+            
+        # Kiểm tra tiện ích
+        if 'amenities' in hotel:
+            amenities = hotel['amenities'].lower()
+            if any(amenity in query_lower for amenity in ['hồ bơi', 'pool', 'spa', 'massage', 'gym', 'fitness']):
+                if any(amenity in amenities for amenity in ['pool', 'spa', 'gym', 'fitness']):
+                    score += 2
+        
+        # Kiểm tra loại khách sạn
+        if any(keyword in query_lower for keyword in ['sang trọng', 'luxury', '5 sao', 'năm sao', 'cao cấp']):
+            if hotel.get('rating', 0) >= 4.5:
+                score += 2
+        elif any(keyword in query_lower for keyword in ['bình dân', 'budget', 'giá rẻ', 'tiết kiệm']):
+            if isinstance(hotel.get('price'), str) and any(price in hotel['price'] for price in ['500', '600', '700', '800']):
+                score += 2
+                
+        # Kiểm tra view/biển
+        if any(keyword in query_lower for keyword in ['biển', 'beach', 'view biển', 'sea']):
+            if 'beach' in hotel.get('amenities', '').lower() or 'biển' in hotel.get('description', '').lower():
+                score += 2
+                
+        # Thêm review nếu có
+        hotel_reviews = [r for r in reviews_data if r['hotel_name'] == hotel['name']]
+        if hotel_reviews:
+            hotel['review'] = hotel_reviews[0]  # Lấy review đầu tiên
+            
+        # Nếu có điểm hoặc là câu hỏi chung chung, thêm vào
+        if score > 0 or any(keyword in query_lower for keyword in ['khách sạn', 'đề xuất', 'tìm', 'recommend']):
+            filtered_hotels.append(hotel)
+    
+    # Sắp xếp theo điểm, nếu không có điểm thì lấy ngẫu nhiên
+    if filtered_hotels:
+        filtered_hotels.sort(key=lambda x: x.get('rating', 0), reverse=True)
+    else:
+        # Fallback: lấy 3 khách sạn có rating cao nhất
+        filtered_hotels = sorted(hotels_data, key=lambda x: x.get('rating', 0), reverse=True)[:3]
+    
+    return filtered_hotels
 
 def google_search(query):
     """Hàm search web đơn giản"""
@@ -1020,6 +1111,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
