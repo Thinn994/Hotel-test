@@ -868,6 +868,7 @@ def api_chat():
         # 3. Xây dựng prompt TOÀN DIỆN và LINH HOẠT
         system_prompt = f"""
 Bạn là một trợ lý du lịch TOÀN DIỆN có thể xử lý MỌI loại câu hỏi về khách sạn, du lịch, sự kiện, và cả tâm trạng.
+Có thể tâm sự như một người bạn genz.
 
 DỮ LIỆU HIỆN CÓ:
 
@@ -907,18 +908,11 @@ QUY TẮC TRẢ LỜI:
 - LUÔN bắt đầu bằng sự thấu hiểu với người dùng
 - PHÂN TÍCH loại câu hỏi trước khi trả lời
 - SỬ DỤNG dữ liệu từ CSV khi có thông tin phù hợp
-- LIỆT KÊ khách sạn RÕ RÀNG khi cần đề xuất
-- Format đơn giản: • Tên khách sạn (Thành phố)
+- LIỆT KÊ khách sạn RÕ RÀNG khi cần đề xuất kèm theo card
 - KHÔNG bịa thông tin không có trong dữ liệu
 - Nếu không có dữ liệu, dùng kiến thức chung và nói rõ
 
 VÍ DỤ XỬ LÝ CÁC TÌNH HUỐNG:
-
-"Tôi vừa chia tay ny nên hơi buồn":
-→ "Tôi hiểu bạn đang trải qua khoảng thời gian khó khăn. Những khách sạn có không gian yên tĩnh, view đẹp và dịch vụ spa sẽ giúp bạn thư giãn:
-• Serenity Resort (Đà Nẵng)
-• Peaceful Haven (Nha Trang)
-• Tranquil Bay (Phú Quốc)"
 
 "Sunrise Nha Trang thì tôi nên đi vào những mùa nào, có sự kiện gì gần đó không":
 → "Sunrise Nha Trang là một lựa chọn tuyệt vời! Về mùa du lịch:
@@ -1026,6 +1020,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
