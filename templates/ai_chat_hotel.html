@@ -170,37 +170,92 @@
             40% { transform: scale(1); }
         }
 
-        .hotel-card {
-            background: #f8f9fa;
+        /* Hotel Card Styles */
+        .hotel-card-detailed {
+            background: white;
             border: 1px solid #e1e5e9;
             border-radius: 12px;
             padding: 15px;
             margin: 10px 0;
             transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
 
-        .hotel-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        .hotel-card-detailed:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .hotel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
         }
 
         .hotel-name {
-            font-weight: 600;
+            font-weight: 700;
             color: #2c3e50;
-            margin-bottom: 6px;
-            font-size: 15px;
+            font-size: 16px;
+            margin-bottom: 4px;
+            flex: 1;
         }
 
-        .hotel-info {
-            font-size: 13px;
+        .hotel-rating {
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            color: #8c6d1f;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .hotel-location {
             color: #666;
-            margin-bottom: 6px;
+            font-size: 13px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .hotel-price {
             font-weight: 700;
             color: #e52e71;
-            font-size: 14px;
+            font-size: 18px;
+            margin: 8px 0;
+        }
+
+        .hotel-amenities {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .amenity-tag {
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            color: #555;
+        }
+
+        .hotel-description {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+            margin: 10px 0;
+        }
+
+        .hotel-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
         }
 
         .btn-hotel-detail {
@@ -213,8 +268,11 @@
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
-            display: inline-block;
-            margin-right: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            justify-content: center;
         }
 
         .btn-hotel-booking {
@@ -227,14 +285,32 @@
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            justify-content: center;
         }
 
         .btn-hotel-detail:hover,
         .btn-hotel-booking:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
             color: white;
+        }
+
+        .hotel-review {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .review-rating {
+            color: #ffc107;
+            font-weight: 600;
         }
 
         .back-button {
@@ -297,6 +373,10 @@
             
             .chat-input-container {
                 padding: 15px;
+            }
+            
+            .hotel-actions {
+                flex-direction: column;
             }
         }
     </style>
@@ -410,130 +490,90 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // Check if AI response contains actual hotel listings (not just mentions)
-        function shouldShowHotelCards(aiResponse) {
-            const lines = aiResponse.split('\n');
-            let hotelListCount = 0;
+        // Hàm tạo card khách sạn chi tiết từ dữ liệu AI
+        function createDetailedHotelCards(aiResponse, hotelData = []) {
+            // Kiểm tra xem AI có đề xuất khách sạn không
+            const hasHotelRecommendation = aiResponse.includes('🏨') || 
+                                         aiResponse.includes('khách sạn') || 
+                                         aiResponse.includes('Khách sạn') ||
+                                         /(?:recommend|suggest).*hotel/i.test(aiResponse);
             
-            // Patterns that indicate actual hotel listings
-            const listingPatterns = [
-                /^[•\-]\s*.+?(?=\s*⭐|\s*💰|$)/, // • Hotel Name ⭐
-                /^.+\s*⭐\s*\d/, // Hotel Name ⭐ 5
-                /^.+\s*💰\s*[\d,]+/, // Hotel Name 💰 2,000,000
-                /^[•\-]\s*.+?\(.+?\)/, // • Hotel Name (City)
-            ];
-            
-            for (let line of lines) {
-                line = line.trim();
-                // Check if this line looks like a hotel listing
-                const isListing = listingPatterns.some(pattern => pattern.test(line));
-                
-                if (isListing) {
-                    hotelListCount++;
-                }
-                
-                // If we found at least 2 hotel listings, consider it a proper list
-                if (hotelListCount >= 2) {
-                    return true;
-                }
-            }
-            
-            return false;
-        }
-
-        // Extract hotel names from AI response (only from actual listings)
-        function extractHotelNames(aiResponse) {
-            const lines = aiResponse.split('\n');
-            const hotelNames = [];
-            
-            // Patterns để extract tên khách sạn từ format mới
-            const extractPatterns = [
-                /^[•\-]\s*([^⭐(]+)/, // • Tên khách sạn
-                /^([^⭐💰•\-].+?)(?=\s*⭐|\s*💰|$)/, // Tên khách sạn (start of line)
-            ];
-        
-            for (let line of lines) {
-                line = line.trim();
-                
-                // Skip lines không phải hotel listings
-                if (line.includes('Tôi') || 
-                    line.includes('Bạn') || 
-                    line.includes('Dựa') || 
-                    line.includes('Ví dụ') ||
-                    line.includes('sau đây') ||
-                    line.includes('gợi ý') ||
-                    line.includes('Hiểu') ||
-                    line.includes('thấu hiểu') ||
-                    line.length < 5) {
-                    continue;
-                }
-                
-                for (let pattern of extractPatterns) {
-                    const match = line.match(pattern);
-                    if (match) {
-                        let hotelName = match[1].trim();
-                        
-                        // Clean up tên khách sạn
-                        hotelName = hotelName
-                            .replace(/^[•\-]\s*/, '')
-                            .replace(/\s*\(.*?\)$/, '')
-                            .trim();
-                        
-                        // Validate tên khách sạn hợp lệ
-                        if (hotelName && 
-                            hotelName.length > 2 && 
-                            hotelName.length < 50 &&
-                            !hotelName.match(/^\d/) &&
-                            !hotelName.includes('...')) {
-                            
-                            hotelNames.push(hotelName);
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            return [...new Set(hotelNames)];
-        }
-
-        // Create hotel cards from AI response
-        function createHotelCards(aiResponse) {
-            // Only show cards if AI actually listed hotels
-            if (!shouldShowHotelCards(aiResponse)) {
+            if (!hasHotelRecommendation || hotelData.length === 0) {
                 return '';
             }
+
+            let hotelsHTML = '<div class="mt-4"><strong>🏨 Khách sạn đề xuất cho bạn:</strong></div>';
             
-            const hotelNames = extractHotelNames(aiResponse);
-            
-            if (hotelNames.length > 0) {
-                let hotelsHTML = '<div class="mt-3"><strong>🏨 Khách sạn đề xuất:</strong></div>';
+            hotelData.slice(0, 3).forEach(hotel => {
+                const cleanHotelName = hotel.name.replace(/[^\w\sÀ-ỹ]/gi, '').trim();
                 
-                hotelNames.slice(0, 5).forEach(hotelName => {
-                    // Clean hotel name for URL
-                    const cleanHotelName = hotelName.replace(/[^\w\sÀ-ỹ]/gi, '').trim();
-                    
-                    hotelsHTML += `
-                        <div class="hotel-card">
-                            <div class="hotel-name">${hotelName}</div>
-                            <div class="hotel-info">Khách sạn chất lượng với đầy đủ tiện ích</div>
-                            <div class="d-flex justify-content-between align-items-center mt-2">
-                                <div class="hotel-price">Xem chi tiết</div>
-                                <div>
-                                    <a href="/hotel/${encodeURIComponent(cleanHotelName)}" class="btn-hotel-detail" target="_blank">
-                                        Xem chi tiết
-                                    </a>
-                                    <a href="/booking/${encodeURIComponent(cleanHotelName)}/standard" class="btn-hotel-booking" target="_blank">
-                                        Đặt phòng
-                                    </a>
-                                </div>
+                hotelsHTML += `
+                    <div class="hotel-card-detailed">
+                        <div class="hotel-header">
+                            <div class="hotel-name">${hotel.name}</div>
+                            <div class="hotel-rating">
+                                ⭐ ${hotel.rating || '4.0'}
                             </div>
                         </div>
-                    `;
-                });
-                return hotelsHTML;
-            }
+                        
+                        <div class="hotel-location">
+                            📍 ${hotel.city || 'Đang cập nhật'} • ${hotel.district || 'Trung tâm'}
+                        </div>
+                        
+                        <div class="hotel-price">
+                            💰 ${hotel.price ? formatPrice(hotel.price) : 'Liên hệ'} / đêm
+                        </div>
+                        
+                        ${hotel.description ? `
+                        <div class="hotel-description">
+                            ${hotel.description}
+                        </div>
+                        ` : ''}
+                        
+                        ${hotel.amenities ? `
+                        <div class="hotel-amenities">
+                            ${hotel.amenities.split(',').slice(0, 4).map(amenity => 
+                                `<span class="amenity-tag">${amenity.trim()}</span>`
+                            ).join('')}
+                        </div>
+                        ` : ''}
+                        
+                        ${hotel.review ? `
+                        <div class="hotel-review">
+                            <strong>Đánh giá:</strong> 
+                            <span class="review-rating">⭐ ${hotel.review.rating || '4.5'}/5</span>
+                            <br>"${hotel.review.comment || 'Khách sạn tuyệt vời!'}"
+                        </div>
+                        ` : ''}
+                        
+                        <div class="hotel-actions">
+                            <a href="/hotel/${encodeURIComponent(cleanHotelName)}" 
+                               class="btn-hotel-detail" 
+                               target="_blank">
+                                📖 Xem chi tiết
+                            </a>
+                            <a href="/booking/${encodeURIComponent(cleanHotelName)}/standard" 
+                               class="btn-hotel-booking" 
+                               target="_blank">
+                                🏨 Đặt phòng ngay
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
             
-            return '';
+            return hotelsHTML;
+        }
+
+        // Hàm format giá
+        function formatPrice(price) {
+            if (typeof price === 'number') {
+                return price.toLocaleString('vi-VN') + ' VNĐ';
+            }
+            if (typeof price === 'string' && price.match(/\d/)) {
+                return price;
+            }
+            return 'Liên hệ';
         }
 
         // Send message to AI
@@ -554,7 +594,8 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({ 
-                        query: message
+                        query: message,
+                        include_hotels: true
                     })
                 });
 
@@ -564,12 +605,14 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                     // Add AI response
                     addMessage('bot', data.response);
                     
-                    // Only create hotel cards if AI actually listed hotels
-                    const hotelCards = createHotelCards(data.response);
-                    if (hotelCards) {
-                        const hotelSection = document.createElement('div');
-                        hotelSection.innerHTML = hotelCards;
-                        chatMessages.appendChild(hotelSection);
+                    // Tạo card khách sạn chi tiết nếu có dữ liệu
+                    if (data.hotels && data.hotels.length > 0) {
+                        const hotelCards = createDetailedHotelCards(data.response, data.hotels);
+                        if (hotelCards) {
+                            const hotelSection = document.createElement('div');
+                            hotelSection.innerHTML = hotelCards;
+                            chatMessages.appendChild(hotelSection);
+                        }
                     }
                 } else if (data.error) {
                     addMessage('bot', `❌ ${data.error}`);
@@ -582,7 +625,6 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                 loadingIndicator.style.display = 'none';
                 chatInput.focus();
                 
-                // Scroll to bottom after everything is done
                 setTimeout(() => {
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 }, 100);
