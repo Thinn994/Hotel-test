@@ -446,22 +446,24 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
             const lines = aiResponse.split('\n');
             const hotelNames = [];
             
-            // Patterns to extract hotel names from listings
+            // Patterns để extract tên khách sạn từ format mới
             const extractPatterns = [
-                /^[•\-]\s*([^⭐💰(]+)/, // • Hotel Name
-                /^([^⭐💰•\-].+?)(?=\s*⭐|\s*💰|$)/, // Hotel Name (start of line before icons)
+                /^[•\-]\s*([^⭐(]+)/, // • Tên khách sạn
+                /^([^⭐💰•\-].+?)(?=\s*⭐|\s*💰|$)/, // Tên khách sạn (start of line)
             ];
-
+        
             for (let line of lines) {
                 line = line.trim();
                 
-                // Skip lines that are clearly not hotel listings
+                // Skip lines không phải hotel listings
                 if (line.includes('Tôi') || 
                     line.includes('Bạn') || 
                     line.includes('Dựa') || 
                     line.includes('Ví dụ') ||
                     line.includes('sau đây') ||
                     line.includes('gợi ý') ||
+                    line.includes('Hiểu') ||
+                    line.includes('thấu hiểu') ||
                     line.length < 5) {
                     continue;
                 }
@@ -471,17 +473,18 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                     if (match) {
                         let hotelName = match[1].trim();
                         
-                        // Clean up the hotel name
+                        // Clean up tên khách sạn
                         hotelName = hotelName
-                            .replace(/^[•\-]\s*/, '') // Remove bullet points
-                            .replace(/\s*\(.*?\)$/, '') // Remove city in parentheses
+                            .replace(/^[•\-]\s*/, '')
+                            .replace(/\s*\(.*?\)$/, '')
                             .trim();
                         
-                        // Validate it's a reasonable hotel name
+                        // Validate tên khách sạn hợp lệ
                         if (hotelName && 
                             hotelName.length > 2 && 
                             hotelName.length < 50 &&
-                            !hotelName.match(/^\d/)) { // Doesn't start with number
+                            !hotelName.match(/^\d/) &&
+                            !hotelName.includes('...')) {
                             
                             hotelNames.push(hotelName);
                             break;
@@ -490,7 +493,7 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                 }
             }
             
-            return [...new Set(hotelNames)]; // Remove duplicates
+            return [...new Set(hotelNames)];
         }
 
         // Create hotel cards from AI response
