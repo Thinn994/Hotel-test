@@ -497,70 +497,41 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
         }
 
         // Create hotel cards from AI response
-        // Create hotel cards từ AI response - ĐƠN GIẢN HÓA
-function createHotelCards(aiResponse) {
-    // Chỉ show cards khi AI thực sự liệt kê khách sạn
-    const hotelNames = extractHotelNames(aiResponse);
-    
-    if (hotelNames.length >= 1) { // Chỉ cần 1 khách sạn là hiện
-        let hotelsHTML = '<div class="mt-3"><strong>🏨 Khách sạn được đề cập:</strong></div>';
-        
-        hotelNames.slice(0, 6).forEach(hotelName => {
-            // Clean hotel name cho URL
-            const cleanHotelName = hotelName.replace(/[^\w\sÀ-ỹ]/gi, '').trim();
-            
-            hotelsHTML += `
-                <div class="hotel-card">
-                    <div class="hotel-name">${hotelName}</div>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                        <div class="hotel-price">Khách sạn chất lượng</div>
-                        <div>
-                            </a>
-                            <a href="/booking/${encodeURIComponent(cleanHotelName)}/standard" class="btn-hotel-booking" target="_blank">
-                                Đặt phòng
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        return hotelsHTML;
-    }
-    
-    return '';
-}
-
-// Extract hotel names - CẢI THIỆN ĐỘ CHÍNH XÁC
-        function extractHotelNames(aiResponse) {
-            const lines = aiResponse.split('\n');
-            const hotelNames = [];
-            
-            for (let line of lines) {
-                line = line.trim();
-                
-                // Pattern đơn giản: dòng bắt đầu bằng • hoặc - và có tên khách sạn
-                if ((line.startsWith('•') || line.startsWith('-')) && line.length > 3) {
-                    let hotelName = line.replace(/^[•\-]\s*/, '').trim();
-                    
-                    // Loại bỏ phần trong ngoặc đơn (thành phố)
-                    hotelName = hotelName.replace(/\s*\([^)]*\)$/, '').trim();
-                    
-                    // Loại bỏ các ký tự đặc biệt ở cuối
-                    hotelName = hotelName.replace(/[.,;:]$/, '').trim();
-                    
-                    // Validate tên hợp lệ
-                    if (hotelName && 
-                        hotelName.length > 2 && 
-                        hotelName.length < 50 &&
-                        !hotelName.includes('...') &&
-                        !hotelName.match(/^(Tôi|Bạn|Ví dụ|Dựa|Hiểu|thấu hiểu)/i)) {
-                        
-                        hotelNames.push(hotelName);
-                    }
-                }
+        function createHotelCards(aiResponse) {
+            // Only show cards if AI actually listed hotels
+            if (!shouldShowHotelCards(aiResponse)) {
+                return '';
             }
             
-            return [...new Set(hotelNames)]; // Remove duplicates
+            const hotelNames = extractHotelNames(aiResponse);
+            
+            if (hotelNames.length > 0) {
+                let hotelsHTML = '<div class="mt-3"><strong>🏨 Khách sạn đề xuất:</strong></div>';
+                
+                hotelNames.slice(0, 5).forEach(hotelName => {
+                    // Clean hotel name for URL
+                    const cleanHotelName = hotelName.replace(/[^\w\sÀ-ỹ]/gi, '').trim();
+                    
+                    hotelsHTML += `
+                        <div class="hotel-card">
+                            <div class="hotel-name">${hotelName}</div>
+                            <div class="hotel-info">Khách sạn chất lượng với đầy đủ tiện ích</div>
+                                <div>
+                                    <a href="/hotel/${encodeURIComponent(cleanHotelName)}" class="btn-hotel-detail" target="_blank">
+                                        Xem chi tiết
+                                    </a>
+                                    <a href="/booking/${encodeURIComponent(cleanHotelName)}/standard" class="btn-hotel-booking" target="_blank">
+                                        Đặt phòng
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                return hotelsHTML;
+            }
+            
+            return '';
         }
 
         // Send message to AI
