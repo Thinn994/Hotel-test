@@ -839,9 +839,9 @@ def api_chat():
         try:
             hotels_df = pd.read_csv("hotels.csv", encoding='utf-8-sig')
             
-            # Format hotels info với đầy đủ tiêu chí
+            # Format hotels info với đầy đủ tiêu chí - GIỚI HẠN 15 KHÁCH SẠN
             hotels_lines = []
-            for _, hotel in hotels_df.iterrows():
+            for _, hotel in hotels_df.head(15).iterrows():
                 # Xử lý các tiêu chí boolean
                 amenities = []
                 if str(hotel.get('pool', '')).lower() in ['true', '1', 'yes']:
@@ -856,6 +856,8 @@ def api_chat():
                     amenities.append("🌊 View biển")
                 if str(hotel.get('bar', '')).lower() in ['true', '1', 'yes']:
                     amenities.append("🍹 Bar")
+                if str(hotel.get('wifi', '')).lower() in ['true', '1', 'yes']:
+                    amenities.append("📶 Wifi")
                 
                 amenities_str = ", ".join(amenities) if amenities else "Không có tiện ích đặc biệt"
                 
@@ -864,12 +866,12 @@ def api_chat():
                 hotels_lines.append(f"  🏷️ {amenities_str}")
                 hotels_lines.append("")  # Dòng trống để phân cách
                 
-            hotels_info = "\n".join(hotels_lines[:40])  # Giới hạn số lượng
+            hotels_info = "\n".join(hotels_lines)
             
             # Đọc reviews
             reviews_df = pd.read_csv("reviews.csv", encoding='utf-8-sig')
             reviews_lines = []
-            for _, review in reviews_df.tail(3).iterrows():  # 3 reviews gần nhất
+            for _, review in reviews_df.tail(3).iterrows():
                 reviews_lines.append(f"- {review['user']}: ⭐{review['rating']}/5")
                 reviews_lines.append(f"  \"{review['comment'][:80]}...\"")
                 reviews_lines.append("")
@@ -878,7 +880,7 @@ def api_chat():
             # Đọc events
             events_df = pd.read_csv("events.csv", encoding='utf-8-sig')
             events_lines = []
-            for _, event in events_df.head(5).iterrows():  # 5 events gần nhất
+            for _, event in events_df.head(5).iterrows():
                 events_lines.append(f"- {event['event_name']}")
                 events_lines.append(f"  📍 {event['city']} | 🗓️ {event['start_date']} đến {event['end_date']}")
                 events_lines.append("")
@@ -890,15 +892,13 @@ def api_chat():
             reviews_info = "Không thể đọc đánh giá"
             events_info = "Không thể đọc sự kiện"
 
-        # 3. Xây dựng prompt mới
+        # 3. Xây dựng prompt THÔNG MINH và LINH HOẠT
         system_prompt = f"""
-Bạn là một trợ lý du lịch chuyên nghiệp cho hệ thống đặt phòng khách sạn. 
-Có thể tâm sự với người dùng như một người bạn, hiểu được tâm tư người dùng, từ đó đưa ra những giải pháp phù hợp.
-Quan trọng là phải biết xuống dòng để người dùng dễ đọc.
+Bạn là một trợ lý du lịch THÔNG MINH và NHẠY CẢM. Bạn có thể hiểu được tâm trạng, cảm xúc và nhu cầu ẩn sau câu hỏi của người dùng.
 
 DỮ LIỆU HIỆN CÓ:
 
-🏨 DANH SÁCH KHÁCH SẠN (với đầy đủ tiện ích):
+🏨 DANH SÁCH KHÁCH SẠN:
 {hotels_info}
 
 📝 ĐÁNH GIÁ GẦN ĐÂY:
@@ -908,24 +908,41 @@ DỮ LIỆU HIỆN CÓ:
 {events_info}
 
 HƯỚNG DẪN QUAN TRỌNG:
-- Khi người dùng hỏi về tiện ích (hồ bơi, buffet, gym, spa, view biển, bar), hãy dùng thông tin từ cột "TIỆN ÍCH" ở trên
-- Các tiện ích được hiển thị bằng icon: 🏊=hồ bơi, 🍽️=buffet, 💪=gym, 💆=spa, 🌊=view biển, 🍹=bar
-- Trả lời tự nhiên, xưng "tôi" và gọi người dùng là "bạn"
-- Format rõ ràng, không dùng markdown
-- Xuống dòng đúng chỗ lúc liệt kê khách sạn
-- Luôn tham khảo đúng thông tin tiện ích từ dữ liệu khách sạn
 
-Ví dụ cách trả lời về tiện ích:
-"Tôi tìm thấy một số khách sạn phù hợp:
-• Khách sạn A (Đà Nẵng)
+1. PHÂN TÍCH TÂM TRẠNG & NHU CẦU:
+   - Nếu người dùng nói về BUỒN, CHIA TAY, CÔ ĐƠN: đề xuất khách sạn yên tĩnh, có spa, view đẹp, không gian healing
+   - Nếu người dùng nói về VUI, KỶ NIỆM, ĂN MỪNG: đề xuất khách sạn sang trọng, có bar, hồ bơi, tiệc
+   - Nếu người dùng nói về MỆT MỎI, STRESS: đề xuất khách sạn có spa, massage, không gian thiền
+   - Nếu người dùng nói về LÃNG MẠN: đề xuất khách sạn view biển, phòng suite, dịch vụ đặc biệt
+
+2. CÁCH TRẢ LỜI:
+   - ĐẦU TIÊN: Thấu hiểu và đồng cảm với tâm trạng người dùng
+   - SAU ĐÓ: Phân tích nhu cầu thực sự ẩn sau câu hỏi
+   - CUỐI CÙNG: Đề xuất khách sạn PHÙ HỢP với tâm trạng và nhu cầu
+
+3. FORMAT TRẢ LỜI:
+   - Luôn xuống dòng rõ ràng, dễ đọc
+   - Liệt kê khách sạn với format:
+     • Tên khách sạn (Thành phố)
+       ⭐ X sao | 💰 Y VND
+       🏷️ Tiện ích phù hợp
+   - KHÔNG dùng markdown (**bold**)
+   - Trả lời tự nhiên như người bạn
+
+Ví dụ cho người buồn:
+"Tôi hiểu bạn đang trải qua khoảng thời gian khó khăn. Một chuyến đi nghỉ ngơi có thể giúp bạn lấy lại cân bằng. Dưới đây là một số khách sạn phù hợp:
+
+• Serenity Resort (Đà Nẵng)
   ⭐ 4 sao | 💰 2,500,000 VND
-  🏷️ 🏊 Hồ bơi, 🍽️ Buffet, 🌊 View biển
+  🏷️ 💆 Spa, 🌊 View biển, 🍽️ Buffet
 
-• Khách sạn B (Hà Nội)  
-  ⭐ 5 sao | 💰 3,200,000 VND
-  🏷️ 💪 Gym, 💆 Spa, 🍹 Bar
+• Peaceful Haven (Nha Trang)
+  ⭐ 5 sao | 💰 3,200,000 VND  
+  🏷️ 🏊 Hồ bơi, 💆 Spa, 📶 Wifi
 
-Hãy trả lời câu hỏi dựa trên dữ liệu khách sạn ở trên.
+Hãy chọn nơi mà bạn cảm thấy thoải mái nhất nhé!"
+
+Hãy PHÂN TÍCH kỹ câu hỏi và đưa ra đề xuất THÔNG MINH dựa trên tâm trạng thực sự của người dùng.
 """
 
         # 4. Gọi Gemini với retry logic
@@ -935,8 +952,8 @@ Hãy trả lời câu hỏi dựa trên dữ liệu khách sạn ở trên.
                 response = model.generate_content(
                     system_prompt + "\n\nCâu hỏi của người dùng: " + user_query,
                     generation_config=genai.GenerationConfig(
-                        temperature=0.7,
-                        max_output_tokens=1000
+                        temperature=0.8,  # Tăng độ sáng tạo
+                        max_output_tokens=1200
                     )
                 )
                 ai_response = response.text
@@ -962,9 +979,8 @@ Hãy trả lời câu hỏi dựa trên dữ liệu khách sạn ở trên.
     except Exception as e:
         print(f"Lỗi API chat: {e}")
         fallback_responses = [
-            "Hiện tại hệ thống AI đang gặp sự cố kỹ thuật. Bạn có thể sử dụng tính năng tìm kiếm khách sạn với bộ lọc tiện ích (hồ bơi, buffet, spa) trên trang chủ.",
-            "Xin lỗi, tôi đang gặp vấn đề kết nối. Bạn có thể tìm khách sạn theo tiện ích mong muốn bằng công cụ tìm kiếm thông thường.",
-            "Hệ thống trợ lý AI tạm thời không khả dụng. Bạn vui lòng sử dụng bộ lọc trên trang chủ để tìm khách sạn có các tiện ích như hồ bơi, buffet, spa theo nhu cầu."
+            "Hiện tại hệ thống AI đang gặp sự cố. Tôi hiểu bạn đang cần sự giúp đỡ. Hãy thử lại sau ít phút hoặc sử dụng tính năng tìm kiếm thông thường nhé.",
+            "Xin lỗi, tôi đang gặp vấn đề kết nối. Dù vậy, tôi vẫn muốn lắng nghe và hỗ trợ bạn. Hãy thử lại sau hoặc liên hệ trực tiếp với chúng tôi.",
         ]
         import random
         return jsonify({"response": random.choice(fallback_responses)})
@@ -1021,6 +1037,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
