@@ -913,129 +913,70 @@ def api_chat():
                 }
             ]
 
-        # 2. Phân tích LOẠI câu hỏi để quyết định có hiển thị card không
-        query_lower = user_query.lower()
-        
-        # Các loại câu hỏi KHÔNG cần hiển thị card khách sạn
-        no_card_queries = [
-            # Câu hỏi xác nhận thông tin
-            'có biết', 'biết không', 'có hiểu', 'có biết gì về',
-            'có thông tin', 'có dữ liệu', 'có trong hệ thống',
-            'bạn biết', 'bạn có biết', 'bạn có nghe',
-            # Câu hỏi chào hỏi
-            'xin chào', 'hello', 'hi ', 'chào bạn', 'chào ',
-            # Câu hỏi cảm ơn
-            'cảm ơn', 'thanks', 'thank you',
-            # Câu hỏi chung chung
-            'bạn là ai', 'bạn tên gì', 'ai tạo ra bạn',
-            # Câu hỏi trợ giúp
-            'giúp tôi', 'hỗ trợ', 'giúp gì', 'làm được gì'
-        ]
-        
-        # Câu hỏi CẦN hiển thị card khách sạn
-        need_card_queries = [
+        # 2. Phân tích câu hỏi để xác định có cần đề xuất khách sạn không
+        need_hotel_recommendation = any(keyword in user_query.lower() for keyword in [
             'tìm khách sạn', 'đề xuất khách sạn', 'khách sạn nào', 'ở đâu',
-            'tìm chỗ ở', 'booking', 'đặt phòng', 'recommend', 'suggest',
-            'nghỉ ở đâu', 'chỗ ở', 'resort', 'nhà nghỉ',
-            'khách sạn ở', 'hotel ở', 'tìm hotel',
-            'có khách sạn nào', 'gợi ý khách sạn'
-        ]
-        
-        # Xác định loại câu hỏi
-        show_hotel_cards = False
-        if any(keyword in query_lower for keyword in need_card_queries):
-            show_hotel_cards = True
-        elif any(keyword in query_lower for keyword in no_card_queries):
-            show_hotel_cards = False
-        else:
-            # Mặc định: chỉ hiển thị card nếu có từ khóa liên quan đến khách sạn
-            hotel_keywords = ['khách sạn', 'hotel', 'resort', 'nhà nghỉ', 'chỗ ở']
-            show_hotel_cards = any(keyword in query_lower for keyword in hotel_keywords)
+            'tìm chỗ ở', 'booking', 'đặt phòng', 'recommend', 'suggest', 'hotel',
+            'nghỉ ở đâu', 'chỗ ở', 'khách sạn', 'resort', 'nhà nghỉ'
+        ])
 
-        print(f"🔍 Query analysis: '{user_query}' -> show_hotel_cards: {show_hotel_cards}")
-
-        # 3. Xây dựng prompt thông minh
+        # 3. Xây dựng prompt thông minh với DANH SÁCH KHÁCH SẠN THỰC TẾ
         hotel_names_list = [hotel['name'] for hotel in hotels_data]
         
         system_prompt = f"""
-Bạn là trợ lý du lịch THÔNG MINH và THÂN THIỆN.
+Bạn là trợ lý du lịch THÔNG MINH, THÂN THIỆN và NGẮN GỌN. Hãy PHÂN TÍCH câu hỏi và đưa ra câu trả lời PHÙ HỢP NHẤT.
 
-DANH SÁCH KHÁCH SẠN THỰC TẾ:
+DANH SÁCH KHÁCH SẠN THỰC TẾ CÓ SẴN (CHỈ ĐƯỢC ĐỀ XUẤT NHỮNG KHÁCH SẠN NÀY):
 {', '.join(hotel_names_list)}
 
-QUY TẮC TRẢ LỜI:
-1. CHỈ đề xuất khách sạn từ danh sách trên
-2. Phân loại câu trả lời theo ngữ cảnh:
+QUY TẮC TRẢ LỜI QUAN TRỌNG:
+1. CHỈ ĐƯỢC đề xuất khách sạn từ danh sách trên
+2. KHÔNG ĐƯỢC tạo ra, bịa đặt hoặc đề xuất khách sạn không có trong danh sách
+3. Nếu không có khách sạn phù hợp, hãy nói "Hiện không có khách sạn phù hợp với yêu cầu của bạn" và đề xuất các tiêu chí khác
 
-- Nếu người dùng HỎI THÔNG TIN (có biết, biết không): 
-  → Trả lời TRỰC TIẾP, NGẮN GỌN
-  → KHÔNG tự động đề xuất thêm khách sạn khác
-  → Ví dụ: "Có, tôi biết khách sạn XYZ. Đây là khách sạn [mô tả ngắn]"
+QUY TẮC ĐỀ XUẤT KHÁCH SẠN:
+- PHÂN TÍCH nhu cầu: vị trí, ngân sách, loại hình từ câu hỏi
+- CHỌN 1-3 khách sạn PHÙ HỢP NHẤT từ danh sách thực tế
+- MÔ TẬ ngắn gọn: vị trí, giá, tiện ích nổi bật, đánh giá
+- So sánh nhẹ giữa các lựa chọn
+- Kết thúc bằng: "Đây là những khách sạn phù hợp từ hệ thống!"
 
-- Nếu người dùng MUỐN TÌM KIẾM/ĐỀ XUẤT:
-  → Phân tích nhu cầu và đề xuất 1-3 khách sạn phù hợp
-  → Mô tả ngắn gọn từng khách sạn
+FORMAT KHI ĐỀ XUẤT:
+- [Tên khách sạn]: [Mô tả ngắn 1-2 câu] - [Giá] - [Đánh giá] sao
 
-- Nếu người dùng CHÀO HỎI/CẢM ƠN:
-  → Trả lời lịch sự, thân thiện
-  → KHÔNG đề xuất khách sạn trừ khi được yêu cầu
-
-Hãy trả lời TỰ NHIÊN và ĐÚNG TRỌNG TÂM câu hỏi!
+Hãy trả lời TỰ NHIÊN như một chuyên gia du lịch và TUÂN THỦ DANH SÁCH KHÁCH SẠN TRÊN!
 """
 
-        # 4. Gọi Gemini với xử lý lỗi tốt hơn
+        # 4. Gọi Gemini
         max_retries = 2
         for attempt in range(max_retries):
             try:
                 response = model.generate_content(
                     system_prompt + "\n\nCâu hỏi của người dùng: " + user_query,
                     generation_config=genai.GenerationConfig(
-                        temperature=0.7,
-                        max_output_tokens=1500,
-                        top_p=0.8
+                        temperature=0.7,  # Giảm temperature để ít sáng tạo hơn
+                        max_output_tokens=2000
                     )
                 )
-                
-                # FIX: Xử lý response an toàn hơn
-                if hasattr(response, 'text'):
-                    ai_response = response.text
-                elif hasattr(response, 'parts'):
-                    # Xử lý response có nhiều parts
-                    ai_response = ""
-                    for part in response.parts:
-                        if hasattr(part, 'text'):
-                            ai_response += part.text
-                elif hasattr(response, 'candidates') and response.candidates:
-                    # Xử lý qua candidates
-                    ai_response = ""
-                    for candidate in response.candidates:
-                        if hasattr(candidate.content, 'parts'):
-                            for part in candidate.content.parts:
-                                if hasattr(part, 'text'):
-                                    ai_response += part.text
-                else:
-                    # Fallback nếu không lấy được text
-                    ai_response = "Xin lỗi, tôi gặp sự cố khi xử lý câu hỏi của bạn. Vui lòng thử lại."
+                ai_response = response.text
                 
                 # Clean up response
-                cleaned_response = clean_ai_response(ai_response)
+                cleaned_response = ai_response.replace('**', '').replace('*', '')
                 
-                # Chuẩn bị dữ liệu trả về
+                # Chuẩn bị dữ liệu khách sạn để trả về
                 response_data = {"response": cleaned_response}
                 
-                # Chỉ trả về hotel data nếu thực sự cần hiển thị card
-                if show_hotel_cards and include_hotels:
-                    recommended_hotels = get_context_appropriate_hotels(
+                # Chỉ trả về hotel data nếu AI thực sự đề xuất khách sạn
+                if need_hotel_recommendation and include_hotels:
+                    # Lọc khách sạn dựa trên response AI và query
+                    recommended_hotels = get_recommended_hotels_from_ai_response(
                         hotels_data, reviews_data, user_query, cleaned_response
                     )
-                    if recommended_hotels:
-                        response_data["hotels"] = recommended_hotels[:3]
+                    response_data["hotels"] = recommended_hotels[:3]
                 
                 return jsonify(response_data)
                 
             except Exception as e:
-                print(f"Lỗi Gemini API (attempt {attempt + 1}): {e}")
-                
                 if "quota" in str(e).lower() or "429" in str(e):
                     if attempt < max_retries - 1:
                         wait_time = 2 ** attempt
@@ -1044,66 +985,44 @@ Hãy trả lời TỰ NHIÊN và ĐÚNG TRỌNG TÂM câu hỏi!
                         continue
                     else:
                         return jsonify({"error": "Hệ thống đang quá tải. Vui lòng thử lại sau 1 phút."}), 429
-                elif "text" in str(e).lower() and "quick accessor" in str(e).lower():
-                    # Lỗi response.text - thử cách khác để lấy nội dung
-                    if attempt < max_retries - 1:
-                        print("Retrying with alternative response handling...")
-                        continue
-                    else:
-                        return jsonify({"response": "Tôi hiểu câu hỏi của bạn! Hiện hệ thống đang có chút sự cố kỹ thuật. Vui lòng thử lại sau ít phút nhé."})
                 else:
-                    if attempt == max_retries - 1:
-                        # Sau tất cả retry vẫn lỗi
-                        return jsonify({"response": "Hiện tại hệ thống đang gặp sự cố kỹ thuật. Tôi vẫn muốn lắng nghe và hỗ trợ bạn. Hãy thử lại sau ít phút nhé!"})
-                    else:
-                        continue
+                    raise e
 
         return jsonify({"error": "Lỗi kết nối. Vui lòng thử lại."}), 500
 
     except Exception as e:
-        print(f"Lỗi API chat tổng: {e}")
+        print(f"Lỗi API chat: {e}")
         return jsonify({"response": "Hiện tại hệ thống đang gặp sự cố kỹ thuật. Tôi vẫn muốn lắng nghe và hỗ trợ bạn. Hãy thử lại sau ít phút nhé!"})
 
-def get_context_appropriate_hotels(hotels_data, reviews_data, user_query, ai_response):
-    """Lấy khách sạn phù hợp với ngữ cảnh câu hỏi"""
-    query_lower = user_query.lower()
+def get_recommended_hotels_from_ai_response(hotels_data, reviews_data, user_query, ai_response):
+    """Lấy khách sạn được đề xuất từ response AI với độ chính xác cao"""
     
-    # Trường hợp 1: Người dùng hỏi về 1 khách sạn cụ thể
-    specific_hotels = []
+    # 1. Ưu tiên cao: Tìm khách sạn được AI nhắc đến cụ thể trong response
+    mentioned_hotels = []
     for hotel in hotels_data:
         hotel_name = hotel['name']
-        name_parts = [part for part in hotel_name.lower().split() if len(part) > 2]
+        # So khớp chính xác hơn: tìm tên đầy đủ hoặc từ khóa chính
+        name_parts = hotel_name.lower().split()
         
-        # Kiểm tra xem khách sạn có được nhắc đến trong query không
-        if (any(part in query_lower for part in name_parts) or 
-            hotel_name.lower() in query_lower):
+        # Kiểm tra xem tên khách sạn có xuất hiện trong response không
+        if (hotel_name.lower() in ai_response.lower() or 
+            any(part in ai_response.lower() for part in name_parts if len(part) > 3)):
             
             # Thêm review nếu có
             hotel_reviews = [r for r in reviews_data if r['hotel_name'] == hotel_name]
             if hotel_reviews:
                 hotel['review'] = hotel_reviews[0]
             
-            specific_hotels.append(hotel)
-            print(f"🎯 Found specific hotel query: {hotel_name}")
+            mentioned_hotels.append(hotel)
+            print(f"✅ Found AI-mentioned hotel: {hotel_name}")
     
-    if specific_hotels:
-        # Nếu chỉ hỏi về 1 khách sạn cụ thể, chỉ trả về khách sạn đó
-        if len(specific_hotels) == 1 and any(keyword in query_lower for keyword in ['có biết', 'biết không', 'thông tin về']):
-            print(f"✅ Returning single specific hotel: {specific_hotels[0]['name']}")
-            return specific_hotels
-        else:
-            # Nếu hỏi nhiều khách sạn, trả về tất cả
-            return specific_hotels
+    if mentioned_hotels:
+        print(f"🎯 Using {len(mentioned_hotels)} AI-mentioned hotels")
+        return mentioned_hotels[:3]
     
-    # Trường hợp 2: Người dùng muốn tìm kiếm/đề xuất
-    if any(keyword in query_lower for keyword in ['tìm', 'đề xuất', 'gợi ý', 'recommend', 'suggest']):
-        filtered_hotels = smart_hotel_filtering(hotels_data, reviews_data, user_query)
-        print(f"🔍 Search query - returning {len(filtered_hotels)} hotels")
-        return filtered_hotels
-    
-    # Trường hợp 3: Mặc định - không trả về hotel để tránh spam
-    print("ℹ️ General query - no hotels returned to avoid spam")
-    return []
+    # 2. Fallback: Lọc theo query với thuật toán cải tiến
+    print("🔄 No AI-mentioned hotels, using smart query filtering")
+    return smart_hotel_filtering(hotels_data, reviews_data, user_query)
 
 def smart_hotel_filtering(hotels_data, reviews_data, user_query):
     """Lọc khách sạn thông minh dựa trên query"""
@@ -1114,19 +1033,27 @@ def smart_hotel_filtering(hotels_data, reviews_data, user_query):
     target_city = extract_city_from_query(query_lower)
     budget_range = extract_budget_from_query(query_lower)
     amenities_needed = extract_amenities_from_query(query_lower)
+    hotel_type = extract_hotel_type_from_query(query_lower)
+    
+    print(f"🔍 Query analysis - City: {target_city}, Budget: {budget_range}, Amenities: {amenities_needed}, Type: {hotel_type}")
     
     for hotel in hotels_data:
         score = 0
         
-        # Điểm cho thành phố
+        # Điểm cho thành phố (quan trọng nhất)
         if target_city and hotel.get('city', '').lower() == target_city.lower():
             score += 10
+        elif target_city:
+            # Nếu có thành phố target nhưng khách sạn không khớp, giảm điểm
+            score -= 5
         
         # Điểm cho ngân sách
         if budget_range:
             hotel_price = extract_price_value(hotel.get('price', ''))
             if hotel_price and budget_range[0] <= hotel_price <= budget_range[1]:
                 score += 8
+            elif hotel_price and hotel_price <= budget_range[1] * 1.2:  # Cho phép vượt 20%
+                score += 4
         
         # Điểm cho tiện ích
         if amenities_needed:
@@ -1134,6 +1061,14 @@ def smart_hotel_filtering(hotels_data, reviews_data, user_query):
             for amenity in amenities_needed:
                 if amenity in hotel_amenities:
                     score += 3
+        
+        # Điểm cho loại khách sạn
+        if hotel_type == 'luxury' and hotel.get('rating', 0) >= 4.5:
+            score += 5
+        elif hotel_type == 'budget' and hotel.get('rating', 0) <= 4.0:
+            score += 5
+        elif hotel_type == 'midrange' and 4.0 < hotel.get('rating', 0) < 4.5:
+            score += 5
         
         # Điểm cho đánh giá
         score += hotel.get('rating', 0) * 0.5
@@ -1152,35 +1087,30 @@ def smart_hotel_filtering(hotels_data, reviews_data, user_query):
     
     if scored_hotels:
         result = scored_hotels[:3]
-        print(f"🏨 Filtered {len(result)} hotels for search query")
+        print(f"🏨 Filtered hotels: {[f'{h["name"]} ({h.get("match_score", 0):.1f})' for h in result]}")
         return result
-    
-    # Fallback: khách sạn có rating cao nhất
-    fallback = sorted(hotels_data, key=lambda x: x.get('rating', 0), reverse=True)[:3]
-    print(f"📦 Using fallback top-rated hotels")
-    return fallback
+    else:
+        # Fallback cuối cùng: khách sạn có rating cao nhất
+        fallback = sorted(hotels_data, key=lambda x: x.get('rating', 0), reverse=True)[:3]
+        print(f"📦 Using fallback top-rated: {[h['name'] for h in fallback]}")
+        return fallback
 
-def clean_ai_response(response):
-    """Làm sạch response AI"""
-    if not response:
-        return "Xin lỗi, tôi không thể xử lý câu hỏi ngay lúc này."
-    
-    # Loại bỏ markdown
-    cleaned = response.replace('**', '').replace('*', '').replace('__', '')
-    
-    # Loại bỏ khoảng trắng thừa
-    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-    
-    return cleaned
-
-# Các hàm hỗ trợ giữ nguyên
+# Các hàm hỗ trợ phân tích query
 def extract_city_from_query(query):
+    """Trích xuất thành phố từ query"""
     city_mapping = {
-        'đà nẵng': 'Đà Nẵng', 'danang': 'Đà Nẵng',
-        'hà nội': 'Hà Nội', 'hanoi': 'Hà Nội',
-        'hồ chí minh': 'Hồ Chí Minh', 'sài gòn': 'Hồ Chí Minh', 
-        'ho chi minh': 'Hồ Chí Minh', 'nha trang': 'Nha Trang',
-        'huế': 'Huế', 'hue': 'Huế', 'hội an': 'Hội An', 'hoi an': 'Hội An'
+        'đà nẵng': 'Đà Nẵng',
+        'danang': 'Đà Nẵng',
+        'hà nội': 'Hà Nội', 
+        'hanoi': 'Hà Nội',
+        'hồ chí minh': 'Hồ Chí Minh',
+        'sài gòn': 'Hồ Chí Minh',
+        'ho chi minh': 'Hồ Chí Minh',
+        'nha trang': 'Nha Trang',
+        'huế': 'Huế',
+        'hue': 'Huế',
+        'hội an': 'Hội An',
+        'hoi an': 'Hội An'
     }
     
     for keyword, city in city_mapping.items():
@@ -1189,24 +1119,29 @@ def extract_city_from_query(query):
     return None
 
 def extract_budget_from_query(query):
+    """Trích xuất khoảng ngân sách từ query"""
     if 'triệu' in query or 'million' in query:
-        if 'dưới 1' in query or '1-2' in query:
-            return (500000, 2000000)
+        if 'dưới 1' in query or 'dưới 2' in query or '1-2' in query:
+            return (500000, 2000000)  # 500k-2tr
         elif '2-3' in query or '2 đến 3' in query:
             return (2000000, 3000000)
         elif '3-5' in query or '3 đến 5' in query:
             return (3000000, 5000000)
-        elif 'trên 5' in query:
+        elif 'trên 5' in query or 'trên 5' in query:
             return (5000000, 10000000)
+    
+    # Mặc định cho query chung
     return (1000000, 5000000)
 
 def extract_amenities_from_query(query):
+    """Trích xuất tiện ích từ query"""
     amenities = []
     amenity_mapping = {
         'hồ bơi': 'pool', 'pool': 'pool', 'bơi': 'pool',
-        'spa': 'spa', 'massage': 'spa', 'gym': 'gym', 
-        'fitness': 'gym', 'nhà hàng': 'restaurant', 
-        'restaurant': 'restaurant', 'bar': 'bar',
+        'spa': 'spa', 'massage': 'spa',
+        'gym': 'gym', 'fitness': 'gym', 'thể hình': 'gym',
+        'nhà hàng': 'restaurant', 'restaurant': 'restaurant',
+        'bar': 'bar', 'quầy bar': 'bar',
         'biển': 'beach', 'beach': 'beach', 'view biển': 'beach'
     }
     
@@ -1214,17 +1149,31 @@ def extract_amenities_from_query(query):
         if keyword in query:
             amenities.append(amenity)
     
-    return list(set(amenities))
+    return list(set(amenities))  # Remove duplicates
+
+def extract_hotel_type_from_query(query):
+    """Trích xuất loại khách sạn từ query"""
+    if any(word in query for word in ['sang trọng', 'luxury', '5 sao', 'năm sao', 'cao cấp']):
+        return 'luxury'
+    elif any(word in query for word in ['bình dân', 'budget', 'giá rẻ', 'tiết kiệm', '2 sao', '3 sao']):
+        return 'budget'
+    elif any(word in query for word in ['trung bình', 'mid-range', '4 sao']):
+        return 'midrange'
+    return None
 
 def extract_price_value(price_str):
+    """Chuyển đổi chuỗi giá thành số"""
     if not price_str or price_str == 'Liên hệ':
         return None
+    
     try:
+        # Xóa ký tự không cần thiết
         clean_price = re.sub(r'[^\d]', '', str(price_str))
         if clean_price:
             return int(clean_price)
     except:
         pass
+    
     return None
 
 def google_search(query):
@@ -1279,6 +1228,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
