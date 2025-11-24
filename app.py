@@ -829,12 +829,15 @@ def delete_hotel(name):
 
 def get_hotel_names_list(hotels_data):
     """Lấy danh sách khách sạn đầy đủ thông tin cho AI"""
+    if not hotels_data:
+        return "⚠️ Chưa có dữ liệu khách sạn"
+    
     hotel_list = []
     
     for i, hotel in enumerate(hotels_data, 1):
-        name = hotel.get('name', '')
-        city = hotel.get('city', '')
-        district = hotel.get('district', '')
+        name = hotel.get('name', 'Không có tên')
+        city = hotel.get('city', 'Chưa xác định')
+        district = hotel.get('district', 'Trung tâm')
         rating = hotel.get('rating', 0)
         price = hotel.get('price', 'Liên hệ')
         amenities = hotel.get('amenities', '')
@@ -845,10 +848,15 @@ def get_hotel_names_list(hotels_data):
         if district and district != "Trung tâm":
             description += f" | Khu vực: {district}"
         description += f" | {rating}⭐"
-        description += f" | Giá: {price}"
+        
+        # Format price nếu là số
+        if isinstance(price, (int, float)):
+            description += f" | Giá: {price:,.0f} VNĐ"
+        else:
+            description += f" | Giá: {price}"
         
         # Thêm 2-3 tiện ích nổi bật
-        if amenities:
+        if amenities and isinstance(amenities, str):
             key_amenities = [a.strip() for a in amenities.split(',')[:3]]
             description += f" | Tiện ích: {', '.join(key_amenities)}"
             
@@ -951,26 +959,24 @@ def api_chat():
         ])
 
         # 3. Xây dựng prompt thông minh
-        system_prompt = f"""
-Bạn là trợ lý du lịch THÔNG MINH. 
-
-QUAN TRỌNG: KHI ĐỀ XUẤT KHÁCH SẠN, CHỈ ĐƯỢC DÙNG CÁC KHÁCH SẠN TRONG DANH SÁCH NÀY:
+system_prompt = f"""
+Bạn là trợ lý du lịch THÔNG MINH. QUAN TRỌNG: CHỈ đề xuất khách sạn có trong danh sách dưới đây:
 
 DANH SÁCH KHÁCH SẠN CÓ SẴN:
-{get_hotel_names_list(hotels_data)}
+{get_hotel_names_list(hotels_data)}  # 👈 TRUYỀN ĐÚNG THAM SỐ
 
-QUY TẮC BẮT BUỘC:
-1. CHỈ đề xuất khách sạn có tên CHÍNH XÁC trong danh sách trên
-2. Mô tả khách sạn dựa trên thông tin thực tế từ danh sách
-3. Nếu user yêu cầu khách sạn không có trong danh sách: đề xuất khách sạn TƯƠNG TỰ có sẵn
-4. Luôn đề xuất 1-3 khách sạn phù hợp nhất từ danh sách
+DỮ LIỆU HIỆN CÓ:
+- {len(hotels_data)} khách sạn với đầy đủ thông tin
+- {len(reviews_data)} đánh giá từ khách hàng  
+- {len(events_data)} sự kiện & mùa du lịch
 
-CÁCH ĐỀ XUẤT:
-- So sánh các lựa chọn dựa trên vị trí, giá, tiện ích
-- Highlight điểm mạnh của từng khách sạn  
-- Đề xuất khách sạn phù hợp với ngân sách và nhu cầu
+QUY TẮC TRẢ LỜI:
+1. Khi đề xuất khách sạn: CHỈ được dùng tên khách sạn từ danh sách trên
+2. Nếu không có khách sạn phù hợp trong danh sách: nói "Hiện chưa có khách sạn phù hợp trong hệ thống" và đề xuất khách sạn TƯƠNG TỰ
+3. MÔ TẢ khách sạn dựa trên thông tin thực tế từ data
+4. Trả lời NGẮN GỌN, trực tiếp vào vấn đề
 
-Hãy trả lời TỰ NHIÊN như một chuyên gia du lịch thực thụ!
+Hãy trả lời TỰ NHIÊN như một chuyên gia du lịch!
 """
 
         # 4. Gọi Gemini
@@ -1214,6 +1220,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
