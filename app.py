@@ -826,6 +826,36 @@ def delete_hotel(name):
 
 #  TẠO "CẦU NỐI" (API ENDPOINT) CHO AI CHAT
 @app.route('/api/chat', methods=['POST'])
+
+def get_hotel_names_list(hotels_data):
+    """Lấy danh sách khách sạn đầy đủ thông tin cho AI"""
+    hotel_list = []
+    
+    for i, hotel in enumerate(hotels_data, 1):
+        name = hotel.get('name', '')
+        city = hotel.get('city', '')
+        district = hotel.get('district', '')
+        rating = hotel.get('rating', 0)
+        price = hotel.get('price', 'Liên hệ')
+        amenities = hotel.get('amenities', '')
+        
+        # Tạo mô tả chi tiết
+        description = f"{name}"
+        description += f" | Thành phố: {city}"
+        if district and district != "Trung tâm":
+            description += f" | Khu vực: {district}"
+        description += f" | {rating}⭐"
+        description += f" | Giá: {price}"
+        
+        # Thêm 2-3 tiện ích nổi bật
+        if amenities:
+            key_amenities = [a.strip() for a in amenities.split(',')[:3]]
+            description += f" | Tiện ích: {', '.join(key_amenities)}"
+            
+        hotel_list.append(description)
+    
+    return "\n".join([f"{i}. {hotel}" for i, hotel in enumerate(hotel_list, 1)])
+
 def api_chat():
     if not model:
         return jsonify({"error": "Gemini AI chưa được cấu hình"}), 500
@@ -922,43 +952,25 @@ def api_chat():
 
         # 3. Xây dựng prompt thông minh
         system_prompt = f"""
-Bạn là trợ lý du lịch THÔNG MINH, THÂN THIỆN và NGẮN GỌN. Hãy PHÂN TÍCH câu hỏi và đưa ra câu trả lời PHÙ HỢP NHẤT.
+Bạn là trợ lý du lịch THÔNG MINH. 
 
-DỮ LIỆU HIỆN CÓ:
-- {len(hotels_data)} khách sạn với đầy đủ thông tin
-- {len(reviews_data)} đánh giá từ khách hàng  
-- {len(events_data)} sự kiện & mùa du lịch
+QUAN TRỌNG: KHI ĐỀ XUẤT KHÁCH SẠN, CHỈ ĐƯỢC DÙNG CÁC KHÁCH SẠN TRONG DANH SÁCH NÀY:
 
-QUY TẮC TRẢ LỜI:
-1. Nếu người dùng hỏi về TÌM KIẾM KHÁCH SẠN:
-   - PHÂN TÍCH nhu cầu: vị trí, ngân sách, loại hình
-   - ĐỀ XUẤT 1-3 khách sạn PHÙ HỢP NHẤT từ dữ liệu
-   - MÔ TẢ vừa chi tiết vừa ngắn gọn từng khách sạn: vị trí, giá, tiện ích, đánh giá
-   - Kết thúc bằng: "Đây là những khách sạn phù hợp với yêu cầu của bạn!"
+DANH SÁCH KHÁCH SẠN CÓ SẴN:
+{get_hotel_names_list(hotels_data)}
 
-2. Nếu hỏi về TÂM TRẠNG/CẢM XÚC:
-   - ĐỒNG CẢM trước
-   - PHÂN TÍCH nhu cầu ẩn sau cảm xúc
-   - ĐỀ XUẤT khách sạn phù hợp với tâm trạng
+QUY TẮC BẮT BUỘC:
+1. CHỈ đề xuất khách sạn có tên CHÍNH XÁC trong danh sách trên
+2. Mô tả khách sạn dựa trên thông tin thực tế từ danh sách
+3. Nếu user yêu cầu khách sạn không có trong danh sách: đề xuất khách sạn TƯƠNG TỰ có sẵn
+4. Luôn đề xuất 1-3 khách sạn phù hợp nhất từ danh sách
 
-3. Nếu hỏi về SỰ KIỆN/MÙA:
-   - KIỂM TRA sự kiện trong dữ liệu
-   - ĐỀ XUẤT khách sạn gần sự kiện
-   - TƯ VẤN thời điểm thích hợp
+CÁCH ĐỀ XUẤT:
+- So sánh các lựa chọn dựa trên vị trí, giá, tiện ích
+- Highlight điểm mạnh của từng khách sạn  
+- Đề xuất khách sạn phù hợp với ngân sách và nhu cầu
 
-4. Nếu hỏi CHUNG CHUNG về du lịch:
-   - TỰ ĐỘNG đề xuất khách sạn nổi bật
-   - Kết hợp tư vấn địa điểm và kinh nghiệm
-
-FORMAT KHI ĐỀ XUẤT KHÁCH SẠN:
-- CHỈ chào hỏi khi người dùng mới vào (câu đầu tiên)
-- Trả lời NGẮN GỌN, trực tiếp vào vấn đề
-- Ghi nhớ context cuộc trò chuyện
-- Highlight điểm nổi bật của từng khách sạn
-- So sánh nhẹ giữa các lựa chọn
-- Luôn kết thúc bằng câu chuyển tiếp mượt mà
-
-Hãy trả lời TỰ NHIÊN như một chuyên gia du lịch!
+Hãy trả lời TỰ NHIÊN như một chuyên gia du lịch thực thụ!
 """
 
         # 4. Gọi Gemini
@@ -1202,6 +1214,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
