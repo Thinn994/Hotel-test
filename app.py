@@ -1139,9 +1139,10 @@ def filter_hotels_by_query(hotels_data, reviews_data, user_query):
     # Sắp xếp theo điểm match
     filtered_hotels.sort(key=lambda x: x.get('match_score', 0), reverse=True)
     
-    # Debug log
+    # Debug log (ĐÃ SỬA LỖI SYNTAX)
     if filtered_hotels:
-        print(f"🎯 Filtered hotels by query: {[f\"{h['name']} (score: {h.get('match_score', 0)})\" for h in filtered_hotels[:3]]}")
+        hotel_names = [f"{h['name']} (score: {h.get('match_score', 0)})" for h in filtered_hotels[:3]]
+        print(f"🎯 Filtered hotels by query: {hotel_names}")
     else:
         # Fallback: lấy 3 khách sạn có rating cao nhất
         filtered_hotels = sorted(hotels_data, key=lambda x: x.get('rating', 0), reverse=True)[:3]
@@ -1201,6 +1202,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
