@@ -922,7 +922,7 @@ def api_chat():
 
         # 3. Xây dựng prompt thông minh
         system_prompt = f"""
-Bạn là trợ lý du lịch THÔNG MINH. Hãy PHÂN TÍCH câu hỏi và đưa ra câu trả lời PHÙ HỢP NHẤT.
+Bạn là trợ lý du lịch THÔNG MINH, THÂN THIỆN và NGẮN GỌN. Hãy PHÂN TÍCH câu hỏi và đưa ra câu trả lời PHÙ HỢP NHẤT.
 
 DỮ LIỆU HIỆN CÓ:
 - {len(hotels_data)} khách sạn với đầy đủ thông tin
@@ -933,7 +933,7 @@ QUY TẮC TRẢ LỜI:
 1. Nếu người dùng hỏi về TÌM KIẾM KHÁCH SẠN:
    - PHÂN TÍCH nhu cầu: vị trí, ngân sách, loại hình
    - ĐỀ XUẤT 1-3 khách sạn PHÙ HỢP NHẤT từ dữ liệu
-   - MÔ TẢ chi tiết từng khách sạn: vị trí, giá, tiện ích, đánh giá
+   - MÔ TẢ vừa chi tiết vừa ngắn gọn từng khách sạn: vị trí, giá, tiện ích, đánh giá
    - Kết thúc bằng: "Đây là những khách sạn phù hợp với yêu cầu của bạn!"
 
 2. Nếu hỏi về TÂM TRẠNG/CẢM XÚC:
@@ -951,9 +951,9 @@ QUY TẮC TRẢ LỜI:
    - Kết hợp tư vấn địa điểm và kinh nghiệm
 
 FORMAT KHI ĐỀ XUẤT KHÁCH SẠN:
-- Chỉ chào khi người dùng vừa vào ứng dụng, không chào ở những câu trả lời sau đó
-- Mô tả tự nhiên nhưng ngắn gọn, không cứng nhắc
-- Ghi nhớ nội dung trước đó để không bị lạc chủ đề
+- CHỈ chào hỏi khi người dùng mới vào (câu đầu tiên)
+- Trả lời NGẮN GỌN, trực tiếp vào vấn đề
+- Ghi nhớ context cuộc trò chuyện
 - Highlight điểm nổi bật của từng khách sạn
 - So sánh nhẹ giữa các lựa chọn
 - Luôn kết thúc bằng câu chuyển tiếp mượt mà
@@ -1005,6 +1005,57 @@ Hãy trả lời TỰ NHIÊN như một chuyên gia du lịch!
     except Exception as e:
         print(f"Lỗi API chat: {e}")
         return jsonify({"response": "Hiện tại hệ thống đang gặp sự cố kỹ thuật. Tôi vẫn muốn lắng nghe và hỗ trợ bạn. Hãy thử lại sau ít phút nhé!"})
+
+def clean_ai_response(response, is_first_message=False):
+    """Làm sạch response AI, loại bỏ các từ chào hỏi không cần thiết"""
+    cleaned = response.replace('**', '').replace('*', '')
+    
+    # Chỉ giữ lại chào hỏi nếu là tin nhắn đầu tiên
+    if not is_first_message:
+        # Loại bỏ các cụm chào hỏi thường gặp
+        greeting_patterns = [
+            r'^(Xin chào|Chào bạn|Hello|Hi)[!.,]?\s*',
+            r'^(Cảm ơn bạn|Thanks)[!.,]?\s*',
+            r'^(Rất vui|Tôi rất vui)[^.!?]*[.!?]\s*',
+            r'^(Tôi xin|Xin được)[^.!?]*[.!?]\s*'
+        ]
+        
+        for pattern in greeting_patterns:
+            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
+    
+    # Loại bỏ khoảng trắng thừa
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    
+    return cleaned
+
+def sync_hotels_with_ai_response(hotels_data, reviews_data, user_query, ai_response):
+    """Đồng bộ khách sạn được đề xuất với tên mà AI đã mention trong response"""
+    
+    # Tìm tên khách sạn được AI đề xuất trong response
+    mentioned_hotels = []
+    for hotel in hotels_data:
+        hotel_name = hotel['name']
+        # Tìm tên khách sạn trong response AI
+        if hotel_name.lower() in ai_response.lower():
+            mentioned_hotels.append(hotel_name)
+    
+    # Nếu AI có đề cập cụ thể khách sạn nào, ưu tiên những cái đó
+    if mentioned_hotels:
+        filtered_hotels = []
+        for hotel_name in mentioned_hotels:
+            matching_hotel = next((h for h in hotels_data if h['name'] == hotel_name), None)
+            if matching_hotel:
+                # Thêm review nếu có
+                hotel_reviews = [r for r in reviews_data if r['hotel_name'] == hotel_name]
+                if hotel_reviews:
+                    matching_hotel['review'] = hotel_reviews[0]
+                filtered_hotels.append(matching_hotel)
+        
+        if filtered_hotels:
+            return filtered_hotels
+    
+    # Fallback: lọc theo query như cũ
+    return filter_hotels_by_query(hotels_data, reviews_data, user_query)
 
 def filter_hotels_by_query(hotels_data, reviews_data, user_query):
     """Lọc khách sạn phù hợp dựa trên query của người dùng"""
@@ -1113,6 +1164,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
