@@ -959,7 +959,7 @@ def api_chat():
         ])
 
         # 3. Xây dựng prompt thông minh
-system_prompt = f"""
+        system_prompt = f"""
 Bạn là trợ lý du lịch THÔNG MINH. QUAN TRỌNG: CHỈ đề xuất khách sạn có trong danh sách dưới đây:
 
 DANH SÁCH KHÁCH SẠN CÓ SẴN:
@@ -1220,6 +1220,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
