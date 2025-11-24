@@ -508,21 +508,29 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
         function createDetailedHotelCards(aiResponse, hotelData = []) {
             // Kiểm tra xem AI có thực sự đề xuất khách sạn không
             const hasHotelRecommendation = aiResponse.includes('🏨') || 
-                                         /(khách sạn|resort|nên ở|đề xuất)/i.test(aiResponse);
+                                         /(khách sạn|resort|nên ở|đề xuất|hotel)/i.test(aiResponse);
             
             if (!hasHotelRecommendation || hotelData.length === 0) {
                 return '';
             }
-        
-            let hotelsHTML = '<div class="mt-3"><strong>🏨 Khách sạn đề xuất:</strong></div>';
             
-            hotelData.slice(0, 3).forEach(hotel => {
+            // Hiển thị số lượng khách sạn thực tế từ backend (tối đa 6)
+            const displayCount = Math.min(hotelData.length, 6);
+            
+            let hotelsHTML = `
+                <div class="mt-3">
+                    <strong>🏨 ${displayCount} Khách sạn đề xuất:</strong>
+                    <small class="text-muted"> (trong ${hotelData.length} kết quả)</small>
+                </div>
+            `;
+            
+            hotelData.slice(0, displayCount).forEach((hotel, index) => {
                 const cleanHotelName = hotel.name.replace(/[^\w\sÀ-ỹ]/gi, '').trim();
                 
                 hotelsHTML += `
                     <div class="hotel-card-detailed">
                         <div class="hotel-header">
-                            <div class="hotel-name">${hotel.name}</div>
+                            <div class="hotel-name">${index + 1}. ${hotel.name}</div>
                             <div class="hotel-rating">
                                 ⭐ ${hotel.rating || '4.0'}
                             </div>
