@@ -826,44 +826,6 @@ def delete_hotel(name):
 
 #  TẠO "CẦU NỐI" (API ENDPOINT) CHO AI CHAT
 @app.route('/api/chat', methods=['POST'])
-
-def get_hotel_names_list(hotels_data):
-    """Lấy danh sách khách sạn đầy đủ thông tin cho AI"""
-    if not hotels_data:
-        return "⚠️ Chưa có dữ liệu khách sạn"
-    
-    hotel_list = []
-    
-    for i, hotel in enumerate(hotels_data, 1):
-        name = hotel.get('name', 'Không có tên')
-        city = hotel.get('city', 'Chưa xác định')
-        district = hotel.get('district', 'Trung tâm')
-        rating = hotel.get('rating', 0)
-        price = hotel.get('price', 'Liên hệ')
-        amenities = hotel.get('amenities', '')
-        
-        # Tạo mô tả chi tiết
-        description = f"{name}"
-        description += f" | Thành phố: {city}"
-        if district and district != "Trung tâm":
-            description += f" | Khu vực: {district}"
-        description += f" | {rating}⭐"
-        
-        # Format price nếu là số
-        if isinstance(price, (int, float)):
-            description += f" | Giá: {price:,.0f} VNĐ"
-        else:
-            description += f" | Giá: {price}"
-        
-        # Thêm 2-3 tiện ích nổi bật
-        if amenities and isinstance(amenities, str):
-            key_amenities = [a.strip() for a in amenities.split(',')[:3]]
-            description += f" | Tiện ích: {', '.join(key_amenities)}"
-            
-        hotel_list.append(description)
-    
-    return "\n".join([f"{i}. {hotel}" for i, hotel in enumerate(hotel_list, 1)])
-
 def api_chat():
     if not model:
         return jsonify({"error": "Gemini AI chưa được cấu hình"}), 500
@@ -961,9 +923,6 @@ def api_chat():
         # 3. Xây dựng prompt thông minh
         system_prompt = f"""
 Bạn là trợ lý du lịch THÔNG MINH. QUAN TRỌNG: CHỈ đề xuất khách sạn có trong danh sách dưới đây:
-
-DANH SÁCH KHÁCH SẠN CÓ SẴN:
-{get_hotel_names_list(hotels_data)}  # 👈 TRUYỀN ĐÚNG THAM SỐ
 
 DỮ LIỆU HIỆN CÓ:
 - {len(hotels_data)} khách sạn với đầy đủ thông tin
@@ -1220,6 +1179,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
