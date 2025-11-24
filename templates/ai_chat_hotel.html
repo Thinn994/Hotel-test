@@ -467,6 +467,8 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
             });
         }
 
+        let conversationHistory = [];
+
         // Add message to chat
         function addMessage(sender, content, isHtml = false) {
             const messageDiv = document.createElement('div');
@@ -486,23 +488,33 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
             messageDiv.appendChild(messageContent);
             chatMessages.appendChild(messageDiv);
             
+            // Lưu vào lịch sử
+            conversationHistory.push({
+                sender: sender,
+                content: content,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Giữ chỉ 20 tin nhắn gần nhất
+            if (conversationHistory.length > 20) {
+                conversationHistory = conversationHistory.slice(-20);
+            }
+            
             // Scroll to bottom
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
         // Hàm tạo card khách sạn chi tiết từ dữ liệu AI
         function createDetailedHotelCards(aiResponse, hotelData = []) {
-            // Kiểm tra xem AI có đề xuất khách sạn không
+            // Kiểm tra xem AI có thực sự đề xuất khách sạn không
             const hasHotelRecommendation = aiResponse.includes('🏨') || 
-                                         aiResponse.includes('khách sạn') || 
-                                         aiResponse.includes('Khách sạn') ||
-                                         /(?:recommend|suggest).*hotel/i.test(aiResponse);
+                                         /(khách sạn|resort|nên ở|đề xuất)/i.test(aiResponse);
             
             if (!hasHotelRecommendation || hotelData.length === 0) {
                 return '';
             }
-
-            let hotelsHTML = '<div class="mt-4"><strong>🏨 Khách sạn đề xuất cho bạn:</strong></div>';
+        
+            let hotelsHTML = '<div class="mt-3"><strong>🏨 Khách sạn đề xuất:</strong></div>';
             
             hotelData.slice(0, 3).forEach(hotel => {
                 const cleanHotelName = hotel.name.replace(/[^\w\sÀ-ỹ]/gi, '').trim();
@@ -580,13 +592,13 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
         async function sendMessage() {
             const message = chatInput.value.trim();
             if (!message) return;
-
+        
             // Add user message
             addMessage('user', message);
             chatInput.value = '';
             sendButton.disabled = true;
             loadingIndicator.style.display = 'flex';
-
+        
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
@@ -595,12 +607,13 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                     },
                     body: JSON.stringify({ 
                         query: message,
-                        include_hotels: true
+                        include_hotels: true,
+                        history: conversationHistory
                     })
                 });
-
+        
                 const data = await response.json();
-
+        
                 if (data.response) {
                     // Add AI response
                     addMessage('bot', data.response);
@@ -612,6 +625,13 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                             const hotelSection = document.createElement('div');
                             hotelSection.innerHTML = hotelCards;
                             chatMessages.appendChild(hotelSection);
+                            
+                            // Cũng lưu card vào lịch sử
+                            conversationHistory.push({
+                                sender: 'system',
+                                content: '[Hotel Cards Displayed]',
+                                timestamp: new Date().toISOString()
+                            });
                         }
                     }
                 } else if (data.error) {
