@@ -982,8 +982,8 @@ Hãy trả lời TỰ NHIÊN như một chuyên gia du lịch!
                 
                 # Chỉ trả về hotel data nếu AI thực sự đề xuất khách sạn
                 if need_hotel_recommendation and include_hotels:
-                    # Lọc khách sạn phù hợp dựa trên query
-                    recommended_hotels = filter_hotels_by_query(hotels_data, reviews_data, user_query)
+                    # ĐỒNG BỘ khách sạn với những gì AI đã đề xuất trong response
+                    recommended_hotels = sync_hotels_with_ai_response(hotels_data, reviews_data, user_query, cleaned_response)
                     response_data["hotels"] = recommended_hotels[:3]  # Tối đa 3 khách sạn
                 
                 return jsonify(response_data)
@@ -1032,17 +1032,22 @@ def sync_hotels_with_ai_response(hotels_data, reviews_data, user_query, ai_respo
     """Đồng bộ khách sạn được đề xuất với tên mà AI đã mention trong response"""
     
     # Tìm tên khách sạn được AI đề xuất trong response
-    mentioned_hotels = []
+    mentioned_hotel_names = []
+    
+    # Kiểm tra tất cả khách sạn trong database xem có được AI nhắc đến không
     for hotel in hotels_data:
         hotel_name = hotel['name']
-        # Tìm tên khách sạn trong response AI
-        if hotel_name.lower() in ai_response.lower():
-            mentioned_hotels.append(hotel_name)
+        # Tìm tên khách sạn trong response AI (so khớp linh hoạt)
+        if (hotel_name.lower() in ai_response.lower() or 
+            any(word in ai_response.lower() for word in hotel_name.lower().split())):
+            mentioned_hotel_names.append(hotel_name)
+    
+    print(f"🔍 AI mentioned hotels: {mentioned_hotel_names}")  # Debug log
     
     # Nếu AI có đề cập cụ thể khách sạn nào, ưu tiên những cái đó
-    if mentioned_hotels:
+    if mentioned_hotel_names:
         filtered_hotels = []
-        for hotel_name in mentioned_hotels:
+        for hotel_name in mentioned_hotel_names[:3]:  # Lấy tối đa 3 khách sạn đầu
             matching_hotel = next((h for h in hotels_data if h['name'] == hotel_name), None)
             if matching_hotel:
                 # Thêm review nếu có
@@ -1052,9 +1057,11 @@ def sync_hotels_with_ai_response(hotels_data, reviews_data, user_query, ai_respo
                 filtered_hotels.append(matching_hotel)
         
         if filtered_hotels:
+            print(f"✅ Using AI-mentioned hotels: {[h['name'] for h in filtered_hotels]}")
             return filtered_hotels
     
-    # Fallback: lọc theo query như cũ
+    # Fallback: lọc theo query như cũ (chỉ khi AI không đề cập cụ thể khách sạn nào)
+    print("🔄 No AI-mentioned hotels found, using query-based filtering")
     return filter_hotels_by_query(hotels_data, reviews_data, user_query)
 
 def filter_hotels_by_query(hotels_data, reviews_data, user_query):
@@ -1063,22 +1070,45 @@ def filter_hotels_by_query(hotels_data, reviews_data, user_query):
     
     query_lower = user_query.lower()
     
+    # Xác định thành phố từ query
+    target_city = None
+    city_keywords = {
+        'đà nẵng': 'Đà Nẵng',
+        'hà nội': 'Hà Nội', 
+        'hồ chí minh': 'Hồ Chí Minh',
+        'sài gòn': 'Hồ Chí Minh',
+        'nha trang': 'Nha Trang',
+        'huế': 'Huế',
+        'hội an': 'Hội An'
+    }
+    
+    for keyword, city in city_keywords.items():
+        if keyword in query_lower:
+            target_city = city
+            break
+    
     for hotel in hotels_data:
         score = 0
         
-        # Kiểm tra thành phố
-        if 'city' in hotel and hotel['city'].lower() in query_lower:
-            score += 3
+        # Ưu tiên cao nhất: khách sạn cùng thành phố
+        if target_city and hotel.get('city') == target_city:
+            score += 5
             
         # Kiểm tra khu vực/quận
         if 'district' in hotel and any(district in query_lower for district in hotel['district'].lower().split()):
-            score += 2
+            score += 3
             
-        # Kiểm tra tiện ích
+        # Kiểm tra tiện ích cụ thể
         if 'amenities' in hotel:
             amenities = hotel['amenities'].lower()
-            if any(amenity in query_lower for amenity in ['hồ bơi', 'pool', 'spa', 'massage', 'gym', 'fitness']):
-                if any(amenity in amenities for amenity in ['pool', 'spa', 'gym', 'fitness']):
+            if 'hồ bơi' in query_lower or 'pool' in query_lower:
+                if 'pool' in amenities or 'bơi' in amenities:
+                    score += 2
+            if 'spa' in query_lower or 'massage' in query_lower:
+                if 'spa' in amenities:
+                    score += 2
+            if 'gym' in query_lower or 'fitness' in query_lower:
+                if 'gym' in amenities or 'fitness' in amenities:
                     score += 2
         
         # Kiểm tra loại khách sạn
@@ -1086,29 +1116,36 @@ def filter_hotels_by_query(hotels_data, reviews_data, user_query):
             if hotel.get('rating', 0) >= 4.5:
                 score += 2
         elif any(keyword in query_lower for keyword in ['bình dân', 'budget', 'giá rẻ', 'tiết kiệm']):
-            if isinstance(hotel.get('price'), str) and any(price in hotel['price'] for price in ['500', '600', '700', '800']):
+            price_str = str(hotel.get('price', '')).lower()
+            if any(price_indicator in price_str for price_indicator in ['500', '600', '700', '800', 'triệu']):
                 score += 2
                 
         # Kiểm tra view/biển
         if any(keyword in query_lower for keyword in ['biển', 'beach', 'view biển', 'sea']):
-            if 'beach' in hotel.get('amenities', '').lower() or 'biển' in hotel.get('description', '').lower():
+            hotel_desc = hotel.get('description', '').lower() + hotel.get('amenities', '').lower()
+            if any(view_keyword in hotel_desc for view_keyword in ['beach', 'biển', 'sea', 'view biển']):
                 score += 2
                 
         # Thêm review nếu có
         hotel_reviews = [r for r in reviews_data if r['hotel_name'] == hotel['name']]
         if hotel_reviews:
-            hotel['review'] = hotel_reviews[0]  # Lấy review đầu tiên
+            hotel['review'] = hotel_reviews[0]
             
-        # Nếu có điểm hoặc là câu hỏi chung chung, thêm vào
-        if score > 0 or any(keyword in query_lower for keyword in ['khách sạn', 'đề xuất', 'tìm', 'recommend']):
+        # Chỉ thêm khách sạn có điểm > 0 hoặc query chung chung
+        if score > 0 or any(keyword in query_lower for keyword in ['khách sạn', 'đề xuất', 'tìm', 'recommend', 'suggest']):
+            hotel['match_score'] = score  # Thêm score để debug
             filtered_hotels.append(hotel)
     
-    # Sắp xếp theo điểm, nếu không có điểm thì lấy ngẫu nhiên
+    # Sắp xếp theo điểm match
+    filtered_hotels.sort(key=lambda x: x.get('match_score', 0), reverse=True)
+    
+    # Debug log
     if filtered_hotels:
-        filtered_hotels.sort(key=lambda x: x.get('rating', 0), reverse=True)
+        print(f"🎯 Filtered hotels by query: {[f\"{h['name']} (score: {h.get('match_score', 0)})\" for h in filtered_hotels[:3]]}")
     else:
         # Fallback: lấy 3 khách sạn có rating cao nhất
         filtered_hotels = sorted(hotels_data, key=lambda x: x.get('rating', 0), reverse=True)[:3]
+        print(f"🔄 No matches, using top-rated: {[h['name'] for h in filtered_hotels]}")
     
     return filtered_hotels
 
@@ -1164,6 +1201,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
