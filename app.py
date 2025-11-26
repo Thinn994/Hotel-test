@@ -1168,7 +1168,7 @@ def get_recommended_hotels_from_ai_response(hotels_data, reviews_data, user_quer
     return smart_hotel_filtering(hotels_data, reviews_data, user_query, query_analysis)
 
 def smart_hotel_filtering(hotels_data, reviews_data, user_query, query_analysis):
-    """Lọc khách sạn thông minh dựa trên query"""
+    """Lọc khách sạn thông minh dựa trên query - CẢI THIỆN"""
     query_lower = query_analysis.get('normalized_query', user_query.lower())
     scored_hotels = []
     
@@ -1183,70 +1183,105 @@ def smart_hotel_filtering(hotels_data, reviews_data, user_query, query_analysis)
     for hotel in hotels_data:
         score = 0
         
-        # Điểm cho thành phố (quan trọng nhất)
-        if target_city and hotel.get('city', '').lower() == target_city.lower():
-            score += 10
-        elif target_city:
-            # Nếu có thành phố target nhưng khách sạn không khớp, giảm điểm
-            score -= 5
+        # Điểm cho thành phố (quan trọng nhất) - CẢI THIỆN
+        hotel_city = hotel.get('city', '').lower().strip()
+        if target_city:
+            target_city_lower = target_city.lower()
+            # So khớp chính xác hơn
+            if hotel_city == target_city_lower:
+                score += 15  # Tăng điểm cho khớp chính xác
+                print(f"✅ Exact city match: {hotel['name']} in {hotel_city}")
+            elif target_city_lower in hotel_city or hotel_city in target_city_lower:
+                score += 10  # Khớp một phần
+                print(f"⚠️ Partial city match: {hotel['name']} ({hotel_city}) vs {target_city_lower}")
+            else:
+                score -= 8  # Giảm điểm mạnh nếu không khớp thành phố
+                print(f"❌ City mismatch: {hotel['name']} ({hotel_city}) vs {target_city_lower}")
+        else:
+            # Không có thành phố cụ thể, không trừ điểm
+            score += 2
         
         # Điểm cho ngân sách
         if budget_range:
             hotel_price = extract_price_value(hotel.get('price', ''))
-            if hotel_price and budget_range[0] <= hotel_price <= budget_range[1]:
-                score += 8
-            elif hotel_price and hotel_price <= budget_range[1] * 1.2:  # Cho phép vượt 20%
-                score += 4
+            if hotel_price:
+                if budget_range[0] <= hotel_price <= budget_range[1]:
+                    score += 8
+                    print(f"💰 Budget match: {hotel['name']} - {hotel_price}")
+                elif hotel_price <= budget_range[1] * 1.2:  # Cho phép vượt 20%
+                    score += 4
+                    print(f"💰 Budget close: {hotel['name']} - {hotel_price}")
         
         # Điểm cho tiện ích
         if amenities_needed:
             hotel_amenities = hotel.get('amenities', '').lower()
+            matched_amenities = 0
             for amenity in amenities_needed:
                 if amenity in hotel_amenities:
                     score += 3
+                    matched_amenities += 1
+            if matched_amenities > 0:
+                print(f"🎯 Amenities matched: {hotel['name']} - {matched_amenities}/{len(amenities_needed)}")
         
         # Điểm cho loại khách sạn
-        if hotel_type == 'luxury' and hotel.get('rating', 0) >= 4.5:
+        hotel_rating = hotel.get('rating', 0)
+        if hotel_type == 'luxury' and hotel_rating >= 4.5:
             score += 5
-        elif hotel_type == 'budget' and hotel.get('rating', 0) <= 4.0:
+        elif hotel_type == 'budget' and hotel_rating <= 4.0:
             score += 5
-        elif hotel_type == 'midrange' and 4.0 < hotel.get('rating', 0) < 4.5:
+        elif hotel_type == 'midrange' and 4.0 < hotel_rating < 4.5:
             score += 5
         
         # Điểm cho đánh giá
-        score += hotel.get('rating', 0) * 0.5
+        score += hotel_rating * 0.5
         
         # Thêm review nếu có
         hotel_reviews = [r for r in reviews_data if r['hotel_name'] == hotel['name']]
         if hotel_reviews:
             hotel['review'] = hotel_reviews[0]
+            score += 2  # Thêm điểm nếu có review
         
-        if score > 0:
+        # Chỉ thêm khách sạn có điểm > 0 hoặc nếu không có thành phố target
+        if score > 0 or not target_city:
             hotel['match_score'] = score
             scored_hotels.append(hotel)
+            print(f"📊 Final score for {hotel['name']}: {score}")
     
     # Sắp xếp theo điểm
     scored_hotels.sort(key=lambda x: x.get('match_score', 0), reverse=True)
     
     if scored_hotels:
         result = scored_hotels[:3]
-        print(f"🏨 Filtered hotels: {[f'{h["name"]} ({h.get("match_score", 0):.1f})' for h in result]}")
+        print(f"🏨 Filtered hotels: {[f'{h['name']} ({h.get('match_score', 0):.1f})' for h in result]}")
         return result
     else:
-        # Fallback cuối cùng: khách sạn có rating cao nhất
+        # Fallback cuối cùng: khách sạn có rating cao nhất trong thành phố target
+        if target_city:
+            city_hotels = [h for h in hotels_data if target_city.lower() in h.get('city', '').lower()]
+            if city_hotels:
+                fallback = sorted(city_hotels, key=lambda x: x.get('rating', 0), reverse=True)[:3]
+                print(f"📦 Using city-specific fallback: {[h['name'] for h in fallback]}")
+                return fallback
+        
+        # Fallback toàn bộ hệ thống
         fallback = sorted(hotels_data, key=lambda x: x.get('rating', 0), reverse=True)[:3]
-        print(f"📦 Using fallback top-rated: {[h['name'] for h in fallback]}")
+        print(f"📦 Using global fallback: {[h['name'] for h in fallback]}")
         return fallback
 
 # Giữ nguyên các hàm extract_* từ bản trước
 def extract_city_from_query(query):
-    """Trích xuất thành phố từ query"""
+    """Trích xuất thành phố từ query - CẢI THIỆN"""
     city_mapping = {
-        'đà nẵng': 'Đà Nẵng', 'danang': 'Đà Nẵng',
-        'hà nội': 'Hà Nội', 'hanoi': 'Hà Nội',
-        'hồ chí minh': 'Hồ Chí Minh', 'sài gòn': 'Hồ Chí Minh', 'ho chi minh': 'Hồ Chí Minh',
-        'nha trang': 'Nha Trang', 'huế': 'Huế', 'hue': 'Huế',
-        'hội an': 'Hội An', 'hoi an': 'Hội An'
+        'đà nẵng': 'Đà Nẵng', 'danang': 'Đà Nẵng', 'da nang': 'Đà Nẵng',
+        'hà nội': 'Hà Nội', 'hanoi': 'Hà Nội', 'ha noi': 'Hà Nội',
+        'hồ chí minh': 'Hồ Chí Minh', 'sài gòn': 'Hồ Chí Minh', 'ho chi minh': 'Hồ Chí Minh', 'hcm': 'Hồ Chí Minh',
+        'nha trang': 'Nha Trang', 'nhatrang': 'Nha Trang',
+        'huế': 'Huế', 'hue': 'Huế',
+        'hội an': 'Hội An', 'hoi an': 'Hội An',
+        'đà lạt': 'Đà Lạt', 'dalat': 'Đà Lạt', 'da lat': 'Đà Lạt',
+        'phú quốc': 'Phú Quốc', 'phu quoc': 'Phú Quốc',
+        'vũng tàu': 'Vũng Tàu', 'vung tau': 'Vũng Tàu',
+        'quảng ninh': 'Quảng Ninh', 'quang ninh': 'Quảng Ninh', 'hạ long': 'Quảng Ninh', 'ha long': 'Quảng Ninh'
     }
     
     for keyword, city in city_mapping.items():
@@ -1362,6 +1397,7 @@ def update_hotel_status(name, status):
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
