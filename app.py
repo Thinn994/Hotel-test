@@ -11,6 +11,38 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import google.generativeai as genai
 
 # -------------------------
+# CẤU HÌNH SỰ KIỆN VÒNG QUAY TỬ THẦN
+# -------------------------
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_FOLDER = os.path.join(BASE_DIR, 'data')
+os.makedirs(DATA_FOLDER, exist_ok=True)
+
+EVENT_CONFIG = {
+    'start_month': 8,    # Tháng 8
+    'end_month': 12,      # Tháng 12
+    'prizes': [
+        {'name': 'Chúc bạn may mắn lần sau', 'value': 0, 'probability': 40},
+        {'name': 'Chúc bạn may mắn lần sau', 'value': 0, 'probability': 25},
+        {'name': 'Chúc bạn may mắn lần sau', 'value': 0, 'probability': 15},
+        {'name': '50,000 VNĐ', 'value': 50000, 'probability': 10},
+        {'name': '100,000 VNĐ', 'value': 100000, 'probability': 5},
+        {'name': '200,000 VNĐ', 'value': 200000, 'probability': 3},
+        {'name': '500,000 VNĐ', 'value': 500000, 'probability': 2}
+    ],
+    'spend_thresholds': [
+        500000,    # Mốc 1: 1 lượt quay
+        1000000,   # Mốc 2: 2 lượt quay  
+        2000000,   # Mốc 3: 3 lượt quay
+        3500000,   # Mốc 4: 4 lượt quay
+        5000000    # Mốc 5: 5 lượt quay
+    ]
+}
+
+EVENT_SPINS_CSV = os.path.join(DATA_FOLDER, 'event_spins.csv')
+EVENT_PRIZES_CSV = os.path.join(DATA_FOLDER, 'event_prizes.csv')
+
+# -------------------------
 # Tạo app Flask
 # -------------------------
 app = Flask(__name__)
@@ -41,6 +73,142 @@ def get_user_rank(total_spent):
 def get_discounted_price(rank, base_price):
     discount = {"Đồng": 0, "Bạc": 0.05, "Vàng": 0.1, "Bạch kim": 0.2}
     return int(base_price * (1 - discount.get(rank, 0)))
+
+# -------------------------
+# HÀM HỖ TRỢ SỰ KIỆN VÒNG QUAY
+# -------------------------
+def init_event_files():
+    """Khởi tạo file CSV cho sự kiện nếu chưa tồn tại"""
+    if not os.path.exists(EVENT_SPINS_CSV):
+        with open(EVENT_SPINS_CSV, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['username', 'spin_date', 'year'])
+    
+    if not os.path.exists(EVENT_PRIZES_CSV):
+        with open(EVENT_PRIZES_CSV, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['username', 'prize_value', 'prize_name', 'created_at'])
+
+def user_exists_in_bookings(username):
+    """Kiểm tra user có tồn tại trong bookings.csv không"""
+    if not os.path.exists(BOOKINGS_CSV):
+        return False
+    
+    with open(BOOKINGS_CSV, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row['username'] == username:
+                return True
+    return False
+
+def calculate_event_spending(username):
+    """Tính tổng chi tiêu TRONG THỜI GIAN SỰ KIỆN từ bookings.csv"""
+    total = 0
+    
+    if not os.path.exists(BOOKINGS_CSV):
+        return total
+    
+    current_year = datetime.now().year
+    
+    with open(BOOKINGS_CSV, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if (row['username'] == username and 
+                row['status'] == 'completed'):
+                
+                try:
+                    booking_time = datetime.strptime(row['booking_time'], '%Y-%m-%d %H:%M:%S')
+                    # CHỈ tính booking trong thời gian sự kiện (tháng 1-8)
+                    if (booking_time.year == current_year and 
+                        EVENT_CONFIG['start_month'] <= booking_time.month <= EVENT_CONFIG['end_month']):
+                        total += float(row['price'])
+                except (ValueError, KeyError):
+                    continue
+    
+    # Cộng thêm giải thưởng từ sự kiện (nếu có)
+    if os.path.exists(EVENT_PRIZES_CSV):
+        with open(EVENT_PRIZES_CSV, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if (row['username'] == username):
+                    try:
+                        prize_time = datetime.strptime(row['created_at'], '%Y-%m-%d %H:%M:%S')
+                        if (prize_time.year == current_year and 
+                            EVENT_CONFIG['start_month'] <= prize_time.month <= EVENT_CONFIG['end_month']):
+                            total += float(row['prize_value'])
+                    except (ValueError, KeyError):
+                        continue
+    
+    return total
+
+def get_used_spins(username):
+    """Đếm số lượt quay đã sử dụng trong thời gian sự kiện"""
+    if not os.path.exists(EVENT_SPINS_CSV):
+        return 0
+    
+    count = 0
+    current_year = datetime.now().year
+    
+    with open(EVENT_SPINS_CSV, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row['username'] == username:
+                try:
+                    spin_year = int(row['year'])
+                    spin_date = datetime.strptime(row['spin_date'], '%Y-%m-%d %H:%M:%S')
+                    # CHỈ tính lượt quay trong thời gian sự kiện
+                    if (spin_year == current_year and 
+                        EVENT_CONFIG['start_month'] <= spin_date.month <= EVENT_CONFIG['end_month']):
+                        count += 1
+                except (ValueError, KeyError):
+                    continue
+    return count
+
+def use_spin(username):
+    """Ghi nhận một lượt quay"""
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+    
+    # Kiểm tra thời gian sự kiện
+    if not (EVENT_CONFIG['start_month'] <= current_month <= EVENT_CONFIG['end_month']):
+        return False
+    
+    # Kiểm tra user có trong bookings không
+    if not user_exists_in_bookings(username):
+        return False
+    
+    # Kiểm tra lượt quay còn lại
+    total_spent = calculate_event_spending(username)
+    used_spins = get_used_spins(username)
+    
+    max_spins = 0
+    for threshold in EVENT_CONFIG['spend_thresholds']:
+        if total_spent >= threshold:
+            max_spins += 1
+    
+    if used_spins >= max_spins:
+        return False
+    
+    # Ghi lượt quay vào CSV
+    with open(EVENT_SPINS_CSV, 'a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow([username, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), current_year])
+    
+    return True
+
+def get_random_prize():
+    """Lấy giải thưởng ngẫu nhiên dựa trên xác suất"""
+    prizes = []
+    for prize in EVENT_CONFIG['prizes']:
+        prizes.extend([prize] * prize['probability'])
+    
+    return random.choice(prizes)
+
+def update_user_prize(username, prize_value, prize_name):
+    """Cập nhật giải thưởng cho user"""
+    with open(EVENT_PRIZES_CSV, 'a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow([username, prize_value, prize_name, datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
 
 def generate_booking_code():
     return str(random.randint(10000000, 99999999))
@@ -936,15 +1104,39 @@ def update_hotel_status(name, status):
 # CẤU HÌNH GEMINI API
 # ------------------------
 try:
-    GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY", "DÁN_GEMINI_API_KEY_CỦA_ANH_VÀO_ĐÂY")
-    if not GEMINI_API_KEY or GEMINI_API_KEY == "DÁN_GEMINI_API_KEY_CỦA_ANH_VÀO_ĐÂY":
-        print("CẢNH BÁO: GOOGLE_API_KEY chưa được set.")
+    # API Key trực tiếp
+    GEMINI_API_KEY = "AIzaSyDEnLhh8fOoacSdyl9jvyiGS6HRSVas01w"
     
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    # Kiểm tra API key
+    if not GEMINI_API_KEY or not GEMINI_API_KEY.startswith("AIzaSy"):
+        print("❌ API Key không hợp lệ")
+        model = None
+    else:
+        # Cấu hình Gemini
+        genai.configure(api_key=GEMINI_API_KEY)
+        
+        # Dùng model ổn định nhất
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        # Test kết nối
+        print("🔗 Đang test kết nối Gemini...")
+        test_response = model.generate_content("Xin chào, test kết nối")
+        
+        # Lấy response an toàn
+        if hasattr(test_response, 'text'):
+            print(f"✅ Gemini hoạt động: {test_response.text[:50]}...")
+        else:
+            # Fallback cách lấy text
+            try:
+                text = test_response._result.candidates[0].content.parts[0].text
+                print(f"✅ Gemini hoạt động (fallback): {text[:50]}...")
+            except:
+                print("⚠️ Gemini kết nối được nhưng không đọc được response")
+                
 except Exception as e:
-    print(f"Lỗi khởi tạo Gemini: {e}")
-    model = None # Đặt là None để kiểm tra sau
+    print(f"❌ Lỗi cấu hình Gemini: {str(e)[:100]}")
+    model = None
+
 # ------------------------
 
 @app.route('/ai_chat')
@@ -1656,9 +1848,104 @@ def google_search(query):
     except Exception as e:
         return f"Không thể tìm kiếm thông tin: {str(e)}"
 
+
+# -------------------------
+# ROUTES SỰ KIỆN VÒNG QUAY TỬ THẦN
+# -------------------------
+@app.route('/event')
+def event_page():
+    """Trang thông tin sự kiện"""
+    return render_template('event.html')
+
+@app.route('/event/check-eligibility')
+def check_eligibility():
+    """Kiểm tra điều kiện tham gia sự kiện DỰA TRÊN BOOKINGS.CSV"""
+    if 'user' not in session:
+        return jsonify({'eligible': False, 'message': 'Vui lòng đăng nhập'})
+    
+    # Kiểm tra thời gian sự kiện
+    current_month = datetime.now().month
+    if current_month > EVENT_CONFIG['end_month']:
+        return jsonify({'eligible': False, 'message': 'Sự kiện đã kết thúc'})
+    
+    username = session['user']['username']
+    
+    # KIỂM TRA QUAN TRỌNG: User có tồn tại trong bookings.csv không?
+    if not user_exists_in_bookings(username):
+        return jsonify({
+            'eligible': False, 
+            'message': 'Tài khoản chưa có đặt phòng nào hoặc không tồn tại trong hệ thống',
+            'total_spent': 0,
+            'used_spins': 0,
+            'has_bookings': False
+        })
+    
+    # Tính tổng chi tiêu TRONG THỜI GIAN SỰ KIỆN
+    total_spent = calculate_event_spending(username)
+    
+    # Tính số lượt quay dựa trên ngưỡng chi tiêu
+    max_spins = 0
+    for threshold in EVENT_CONFIG['spend_thresholds']:
+        if total_spent >= threshold:
+            max_spins += 1
+    
+    # Kiểm tra lượt quay đã sử dụng
+    used_spins = get_used_spins(username)
+    spins_remaining = max(0, max_spins - used_spins)
+    
+    return jsonify({
+        'eligible': spins_remaining > 0,
+        'spins_remaining': spins_remaining,
+        'total_spent': total_spent,
+        'used_spins': used_spins,
+        'max_spins': max_spins,
+        'has_bookings': True
+    })
+
+@app.route('/event/spin-wheel', methods=['POST'])
+def spin_wheel():
+    """Xử lý vòng quay"""
+    if 'user' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session['user']['username']
+    
+    # Kiểm tra user có trong bookings không
+    if not user_exists_in_bookings(username):
+        return jsonify({'error': 'Tài khoản không có đặt phòng nào'}), 400
+    
+    # Kiểm tra và trừ lượt quay
+    if not use_spin(username):
+        return jsonify({'error': 'No spins remaining'}), 400
+    
+    # Quay thưởng
+    prize = get_random_prize()
+    
+    # Cập nhật giải thưởng cho user
+    if prize['value'] > 0:
+        update_user_prize(username, prize['value'], prize['name'])
+    
+    # Tính góc quay cho hiệu ứng
+    prize_index = next(i for i, p in enumerate(EVENT_CONFIG['prizes']) if p['value'] == prize['value'])
+    sector_angle = 360 / len(EVENT_CONFIG['prizes'])
+    final_angle = 360 - (prize_index * sector_angle + random.uniform(sector_angle * 0.1, sector_angle * 0.9))
+    
+    # Kiểm tra lượt quay còn lại
+    total_spent = calculate_event_spending(username)
+    used_spins = get_used_spins(username)
+    max_spins = sum(1 for threshold in EVENT_CONFIG['spend_thresholds'] if total_spent >= threshold)
+    spins_remaining = max(0, max_spins - used_spins)
+    
+    return jsonify({
+        'prize_name': prize['name'],
+        'prize_value': prize['value'],
+        'final_angle': final_angle,
+        'spins_remaining': spins_remaining,
+        'total_spent': total_spent
+    })
+
+init_event_files()
+
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
