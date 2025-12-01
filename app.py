@@ -38,7 +38,14 @@ EVENT_CONFIG = {
         2000000,   # Mốc 3: 3 lượt quay
         3500000,   # Mốc 4: 4 lượt quay
         5000000    # Mốc 5: 5 lượt quay
-    ]
+    ],
+    # THÊM: Số lượt quay thêm theo rank
+    'rank_bonus_spins': {
+        'Đồng': 1,
+        'Bạc': 2,
+        'Vàng': 3,
+        'Bạch kim': 4
+    }
 }
 
 EVENT_SPINS_CSV = os.path.join(DATA_FOLDER, 'event_spins.csv')
@@ -143,8 +150,35 @@ def calculate_event_spending(username):
     
     return total
 
+def get_max_spins(username):
+    """Tính tổng số lượt quay tối đa = lượt từ chi tiêu + lượt từ rank"""
+    # Lấy rank của user
+    user_data = users_db.get(username, {})
+    total_spent = user_data.get('total_spent', 0)
+    rank = get_user_rank(total_spent)
+    
+    # Tính lượt từ chi tiêu
+    spend_spins = 0
+    for threshold in EVENT_CONFIG['spend_thresholds']:
+        if total_spent >= threshold:
+            spend_spins += 1
+    
+    # Tính lượt từ rank
+    rank_bonus = EVENT_CONFIG['rank_bonus_spins'].get(rank, 0)
+    
+    # Tổng lượt quay (tối đa 9 = 5 từ chi tiêu + 4 từ rank)
+    total_spins = spend_spins + rank_bonus
+    
+    return {
+        'total_spins': total_spins,
+        'spend_spins': spend_spins,
+        'rank_bonus': rank_bonus,
+        'rank': rank,
+        'total_spent': total_spent
+    }
+
 def get_used_spins(username):
-    """Đếm số lượt quay đã sử dụng trong thời gian sự kiện"""
+    """Đếm số lượt quay đã sử dụng"""
     if not os.path.exists(EVENT_SPINS_CSV):
         return 0
     
@@ -158,7 +192,6 @@ def get_used_spins(username):
                 try:
                     spin_year = int(row['year'])
                     spin_date = datetime.strptime(row['spin_date'], '%Y-%m-%d %H:%M:%S')
-                    # CHỈ tính lượt quay trong thời gian sự kiện
                     if (spin_year == current_year and 
                         EVENT_CONFIG['start_month'] <= spin_date.month <= EVENT_CONFIG['end_month']):
                         count += 1
@@ -167,7 +200,7 @@ def get_used_spins(username):
     return count
 
 def use_spin(username):
-    """Ghi nhận một lượt quay"""
+    """Ghi nhận một lượt quay với kiểm tra rank bonus"""
     current_year = datetime.now().year
     current_month = datetime.now().month
     
@@ -179,19 +212,14 @@ def use_spin(username):
     if not user_exists_in_bookings(username):
         return False
     
-    # Kiểm tra lượt quay còn lại
-    total_spent = calculate_event_spending(username)
+    # Tính lượt quay còn lại (bao gồm cả rank bonus)
+    spin_info = get_max_spins(username)
     used_spins = get_used_spins(username)
     
-    max_spins = 0
-    for threshold in EVENT_CONFIG['spend_thresholds']:
-        if total_spent >= threshold:
-            max_spins += 1
-    
-    if used_spins >= max_spins:
+    if used_spins >= spin_info['total_spins']:
         return False
     
-    # Ghi lượt quay vào CSV
+    # Ghi lượt quay
     with open(EVENT_SPINS_CSV, 'a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow([username, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), current_year])
@@ -1854,6 +1882,54 @@ def google_search(query):
 # -------------------------
 # ROUTES SỰ KIỆN VÒNG QUAY TỬ THẦN
 # -------------------------
+
+@app.route('/event/user-info')
+def event_user_info():
+    """Lấy thông tin chi tiết của user cho sự kiện"""
+    if 'user' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session['user']['username']
+    
+    # Tính tổng chi tiêu trong thời gian sự kiện
+    total_spent = calculate_event_spending(username)
+    
+    # Lấy thông tin rank và lượt quay
+    spin_info = get_max_spins(username)
+    used_spins = get_used_spins(username)
+    
+    # Lấy lịch sử đặt phòng trong thời gian sự kiện
+    event_bookings = []
+    if os.path.exists(BOOKINGS_CSV):
+        with open(BOOKINGS_CSV, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row['username'] == username and row['status'] == 'completed':
+                    try:
+                        booking_time = datetime.strptime(row['booking_time'], '%Y-%m-%d %H:%M:%S')
+                        if (booking_time.year == datetime.now().year and 
+                            EVENT_CONFIG['start_month'] <= booking_time.month <= EVENT_CONFIG['end_month']):
+                            event_bookings.append({
+                                'hotel': row['hotel_name'],
+                                'amount': float(row['price']),
+                                'date': row['booking_time']
+                            })
+                    except:
+                        continue
+    
+    return jsonify({
+        'username': username,
+        'rank': spin_info['rank'],
+        'total_spent': total_spent,
+        'spend_spins': spin_info['spend_spins'],
+        'rank_bonus': spin_info['rank_bonus'],
+        'total_spins': spin_info['total_spins'],
+        'used_spins': used_spins,
+        'spins_remaining': max(0, spin_info['total_spins'] - used_spins),
+        'event_bookings': event_bookings,
+        'event_period': f"{EVENT_CONFIG['start_month']}/8 - {EVENT_CONFIG['end_month']}/12"
+    })
+
 @app.route('/event')
 def event_page():
     """Trang thông tin sự kiện"""
@@ -1861,22 +1937,20 @@ def event_page():
 
 @app.route('/event/check-eligibility')
 def check_eligibility():
-    """Kiểm tra điều kiện tham gia sự kiện DỰA TRÊN BOOKINGS.CSV"""
+    """Kiểm tra điều kiện tham gia sự kiện với rank bonus"""
     if 'user' not in session:
         return jsonify({'eligible': False, 'message': 'Vui lòng đăng nhập'})
     
-    # Kiểm tra thời gian sự kiện
     current_month = datetime.now().month
     if current_month > EVENT_CONFIG['end_month']:
         return jsonify({'eligible': False, 'message': 'Sự kiện đã kết thúc'})
     
     username = session['user']['username']
     
-    # KIỂM TRA QUAN TRỌNG: User có tồn tại trong bookings.csv không?
     if not user_exists_in_bookings(username):
         return jsonify({
             'eligible': False, 
-            'message': 'Tài khoản chưa có đặt phòng nào hoặc không tồn tại trong hệ thống',
+            'message': 'Tài khoản chưa có đặt phòng nào',
             'total_spent': 0,
             'used_spins': 0,
             'has_bookings': False
@@ -1885,22 +1959,20 @@ def check_eligibility():
     # Tính tổng chi tiêu TRONG THỜI GIAN SỰ KIỆN
     total_spent = calculate_event_spending(username)
     
-    # Tính số lượt quay dựa trên ngưỡng chi tiêu
-    max_spins = 0
-    for threshold in EVENT_CONFIG['spend_thresholds']:
-        if total_spent >= threshold:
-            max_spins += 1
-    
-    # Kiểm tra lượt quay đã sử dụng
+    # Lấy thông tin lượt quay (bao gồm rank bonus)
+    spin_info = get_max_spins(username)
     used_spins = get_used_spins(username)
-    spins_remaining = max(0, max_spins - used_spins)
+    spins_remaining = max(0, spin_info['total_spins'] - used_spins)
     
     return jsonify({
         'eligible': spins_remaining > 0,
         'spins_remaining': spins_remaining,
-        'total_spent': total_spent,
+        'total_spins': spin_info['total_spins'],
         'used_spins': used_spins,
-        'max_spins': max_spins,
+        'spend_spins': spin_info['spend_spins'],
+        'rank_bonus': spin_info['rank_bonus'],
+        'rank': spin_info['rank'],
+        'total_spent': total_spent,
         'has_bookings': True
     })
 
@@ -1951,4 +2023,5 @@ init_event_files()
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
