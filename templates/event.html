@@ -69,6 +69,7 @@
             transform-origin: center;
             will-change: transform;
             backface-visibility: hidden;
+            transition: transform 4s cubic-bezier(0.33, 0, 0.67, 1);
         }
         .wheel-pointer {
             position: absolute;
@@ -137,35 +138,6 @@
             50% { background-position: 0% 0%; }
             100% { background-position: 200% 0%; }
         }
-        @keyframes wheelSpin {
-            0% { 
-                transform: rotate(0deg); 
-                animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            }
-            20% { 
-                transform: rotate(720deg);
-                animation-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53);
-            }
-            40% { 
-                transform: rotate(1440deg);
-                animation-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53);
-            }
-            60% { 
-                transform: rotate(2160deg);
-                animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            }
-            80% { 
-                transform: rotate(2520deg);
-                animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
-            }
-            95% { 
-                transform: rotate(calc(var(--final-rotation) - 10deg));
-                animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.33);
-            }
-            100% { 
-                transform: rotate(var(--final-rotation));
-            }
-        }
         .status-card {
             border-left: 5px solid #007bff;
         }
@@ -223,6 +195,11 @@
             border: 5px solid white;
             box-shadow: 0 0 10px rgba(0,0,0,0.3);
             z-index: 5;
+        }
+        .debug-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
         }
     </style>
 </head>
@@ -404,6 +381,7 @@
                         <p id="spin-info" class="fw-bold">Bạn có thể quay không giới hạn lượt</p>
                         <p class="text-muted small">Chế độ test - Không kiểm tra điều kiện</p>
                         <div class="spin-count" id="spin-count">Đã quay: 0 lần</div>
+                        <div class="debug-info" id="debug-info"></div>
                         <button id="spin-btn" class="btn participate-btn">QUAY THỬ</button>
                     </div>
                 </div>
@@ -426,6 +404,7 @@
 
             let spinCount = 0;
             let isSpinning = false;
+            let currentRotation = 0;
 
             // Tạo nhãn giải thưởng
             function createPrizeLabels() {
@@ -471,37 +450,49 @@
                 });
             }
 
-            // Tính góc dừng CHÍNH XÁC để mũi tên chỉ đúng giải thưởng
-            function getPrizeAngle(prizeIndex) {
-                const numPrizes = testPrizes.length;
-                const sectorAngle = 360 / numPrizes;
+            // Tính góc dừng CHÍNH XÁC để mũi tên chỉ vào giải thưởng
+            function calculateStopAngle(prizeIndex) {
+                const numPrizes = 7;
+                const sectorAngle = 360 / numPrizes; // 51.43 độ mỗi ô
                 
                 // Mũi tên ở 90 độ (bên phải, hướng sang trái)
-                // Cần tính góc quay để giải thưởng nằm đúng ở vị trí mũi tên
+                // Điều chỉnh này để mũi tên chỉ vào GIỮA ô giải thưởng
+                const arrowAngle = 90; // Mũi tên ở 90 độ
                 
-                // Góc chính giữa của giải thưởng
+                // Góc chính giữa của giải thưởng (tính từ 12h theo chiều kim đồng hồ)
                 const prizeCenterAngle = prizeIndex * sectorAngle + sectorAngle / 2;
                 
-                // Mũi tên ở 90 độ (do đã xoay 90deg trong CSS)
-                // Công thức: stopAngle = 90 - prizeCenterAngle + 360 * n (n là số vòng)
-                let stopAngle = 90 - prizeCenterAngle;
+                // Để mũi tên chỉ vào giải thưởng, cần quay đến vị trí sao cho:
+                // (currentRotation + prizeCenterAngle) % 360 = arrowAngle
+                // currentRotation = arrowAngle - prizeCenterAngle
+                
+                let stopAngle = arrowAngle - prizeCenterAngle;
+                
+                // Thêm ít nhất 5 vòng quay (1800 độ) để hiệu ứng
+                const minRotations = 5;
+                stopAngle += minRotations * 360;
                 
                 // Đảm bảo góc dương
                 while (stopAngle < 0) {
                     stopAngle += 360;
                 }
                 
-                // Đảm bảo quay ít nhất 5 vòng
-                const minRotations = 5;
-                stopAngle += minRotations * 360;
+                // Normalize về 0-360
+                stopAngle = stopAngle % 360;
                 
-                // Thêm chút ngẫu nhiên nhỏ để tự nhiên
-                stopAngle += Math.random() * 10 - 5;
+                // Thêm current rotation hiện tại
+                stopAngle += currentRotation;
+                
+                console.log(`Prize Index: ${prizeIndex}`);
+                console.log(`Prize Center Angle: ${prizeCenterAngle}°`);
+                console.log(`Arrow Angle: ${arrowAngle}°`);
+                console.log(`Calculated Stop Angle: ${stopAngle}°`);
+                console.log(`Final Position: (${stopAngle} + ${prizeCenterAngle}) % 360 = ${(stopAngle + prizeCenterAngle) % 360}°`);
                 
                 return stopAngle;
             }
 
-            // Lấy giải thưởng ngẫu nhiên theo xác suất
+            // Lấy giải thưởng ngẫu nhiên
             function getRandomPrize() {
                 const random = Math.random() * 100;
                 let cumulative = 0;
@@ -519,8 +510,8 @@
                 return { prize: testPrizes[0], index: 0 };
             }
 
-            // Hiển thị kết quả ĐƠN GIẢN
-            function showPrizeResult(prize, prizeIndex) {
+            // Hiển thị kết quả
+            function showPrizeResult(prize) {
                 const resultDiv = document.getElementById('wheel-result');
                 resultDiv.style.display = 'block';
                 
@@ -560,6 +551,7 @@
                 const wheel = document.getElementById('prize-wheel');
                 const resultDiv = document.getElementById('wheel-result');
                 const spinCountElement = document.getElementById('spin-count');
+                const debugElement = document.getElementById('debug-info');
                 
                 isSpinning = true;
                 btn.disabled = true;
@@ -569,31 +561,39 @@
                 spinCountElement.textContent = `Đã quay: ${spinCount} lần`;
                 
                 resultDiv.style.display = 'none';
+                debugElement.textContent = '';
                 
-                // Chọn giải thưởng TRƯỚC KHI quay
+                // Chọn giải thưởng TRƯỚC
                 const { prize, index: prizeIndex } = getRandomPrize();
-                console.log(`Giải thưởng được chọn: ${prize.name}, Index: ${prizeIndex}`);
+                console.log(`=== SPIN ${spinCount} ===`);
+                console.log(`Giải thưởng: ${prize.name} (Index: ${prizeIndex})`);
                 
-                // Tính góc dừng CHÍNH XÁC
-                const stopAngle = getPrizeAngle(prizeIndex);
-                console.log(`Góc dừng: ${stopAngle} độ`);
+                // Tính toán góc dừng
+                const stopAngle = calculateStopAngle(prizeIndex);
                 
-                // Đặt CSS custom property
-                wheel.style.setProperty('--final-rotation', `${stopAngle}deg`);
+                // Cập nhật debug info
+                debugElement.textContent = `Giải: ${prizeIndex + 1}, Góc dừng: ${Math.round(stopAngle)}°`;
                 
-                // Hiệu ứng quay
+                // Thực hiện animation
                 const spinDuration = 4;
                 
-                // Xóa animation cũ
-                wheel.style.animation = 'none';
+                // Reset wheel về 0 độ (nhưng giữ nhãn)
+                wheel.style.transition = 'none';
+                wheel.style.transform = `rotate(0deg)`;
+                
+                // Force reflow
                 void wheel.offsetWidth;
                 
-                // Áp dụng animation mới
-                wheel.style.animation = `wheelSpin ${spinDuration}s forwards`;
+                // Bắt đầu animation
+                wheel.style.transition = `transform ${spinDuration}s cubic-bezier(0.33, 0, 0.67, 1)`;
+                wheel.style.transform = `rotate(${stopAngle}deg)`;
+                
+                // Cập nhật current rotation
+                currentRotation = stopAngle % 360;
                 
                 // Hiển thị kết quả sau khi quay xong
                 setTimeout(() => {
-                    showPrizeResult(prize, prizeIndex);
+                    showPrizeResult(prize);
                     
                     // Cho phép quay lại
                     setTimeout(() => {
