@@ -73,13 +73,13 @@
         }
         .wheel-pointer {
             position: absolute;
-            top: 50%;
-            right: -25px;
-            transform: translateY(-50%) rotate(90deg);
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
             width: 50px;
             height: 60px;
             background: linear-gradient(45deg, #ff6b6b, #ff8e53);
-            clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
             z-index: 10;
             filter: drop-shadow(0 5px 8px rgba(0,0,0,0.4));
             border-radius: 3px;
@@ -412,7 +412,7 @@
                 wheel.innerHTML = '';
                 
                 const numPrizes = testPrizes.length;
-                const sectorAngle = 360 / numPrizes;
+                const sectorAngle = 360 / numPrizes; // 51.42857° mỗi ô
                 const radius = 185;
 
                 testPrizes.forEach((prize, index) => {
@@ -453,20 +453,18 @@
             // Tính góc dừng CHÍNH XÁC để mũi tên chỉ vào giải thưởng
             function calculateStopAngle(prizeIndex) {
                 const numPrizes = 7;
-                const sectorAngle = 360 / numPrizes; // 51.43 độ mỗi ô
+                const sectorAngle = 360 / numPrizes; // 51.42857° mỗi ô
                 
-                // Mũi tên ở 90 độ (bên phải, hướng sang trái)
-                // Điều chỉnh này để mũi tên chỉ vào GIỮA ô giải thưởng
-                const arrowAngle = 90; // Mũi tên ở 90 độ
+                // Mũi tên ở vị trí 12 giờ (0 độ)
+                const pointerAngle = 0;
                 
                 // Góc chính giữa của giải thưởng (tính từ 12h theo chiều kim đồng hồ)
                 const prizeCenterAngle = prizeIndex * sectorAngle + sectorAngle / 2;
                 
                 // Để mũi tên chỉ vào giải thưởng, cần quay đến vị trí sao cho:
-                // (currentRotation + prizeCenterAngle) % 360 = arrowAngle
-                // currentRotation = arrowAngle - prizeCenterAngle
-                
-                let stopAngle = arrowAngle - prizeCenterAngle;
+                // Khi vòng quay dừng lại, giải thưởng nằm ở vị trí đối diện với mũi tên
+                // Công thức: stopAngle = pointerAngle - prizeCenterAngle + 180
+                let stopAngle = pointerAngle - prizeCenterAngle + 180;
                 
                 // Thêm ít nhất 5 vòng quay (1800 độ) để hiệu ứng
                 const minRotations = 5;
@@ -477,41 +475,62 @@
                     stopAngle += 360;
                 }
                 
-                // Normalize về 0-360
-                stopAngle = stopAngle % 360;
-                
-                // Thêm current rotation hiện tại
-                stopAngle += currentRotation;
-                
-                console.log(`Prize Index: ${prizeIndex}`);
-                console.log(`Prize Center Angle: ${prizeCenterAngle}°`);
-                console.log(`Arrow Angle: ${arrowAngle}°`);
-                console.log(`Calculated Stop Angle: ${stopAngle}°`);
-                console.log(`Final Position: (${stopAngle} + ${prizeCenterAngle}) % 360 = ${(stopAngle + prizeCenterAngle) % 360}°`);
+                console.log(`=== TÍNH TOÁN GÓC ===`);
+                console.log(`Giải thưởng: ${testPrizes[prizeIndex].name}`);
+                console.log(`Index: ${prizeIndex}`);
+                console.log(`Góc trung tâm giải: ${prizeCenterAngle.toFixed(2)}°`);
+                console.log(`Góc mũi tên: ${pointerAngle}°`);
+                console.log(`Góc dừng tính toán: ${stopAngle.toFixed(2)}°`);
+                console.log(`Vị trí sau khi quay: giải sẽ ở đối diện mũi tên`);
                 
                 return stopAngle;
             }
 
-            // Lấy giải thưởng ngẫu nhiên
-            function getRandomPrize() {
+            // Xác định giải thưởng từ góc quay cuối cùng
+            function getPrizeFromAngle(finalAngle) {
+                const numPrizes = 7;
+                const sectorAngle = 360 / numPrizes;
+                
+                // Normalize góc về 0-360
+                const normalizedAngle = ((finalAngle % 360) + 360) % 360;
+                
+                // Tính góc của giải thưởng đang ở vị trí mũi tên
+                // Giải thưởng ở vị trí đối diện với mũi tên (cách 180 độ)
+                let pointerPrizeAngle = (normalizedAngle + 180) % 360;
+                
+                // Xác định index của giải thưởng
+                const prizeIndex = Math.floor(pointerPrizeAngle / sectorAngle) % numPrizes;
+                
+                console.log(`=== KIỂM TRA VỊ TRÍ ===`);
+                console.log(`Góc cuối cùng: ${finalAngle.toFixed(2)}°`);
+                console.log(`Góc normalized: ${normalizedAngle.toFixed(2)}°`);
+                console.log(`Góc giải ở mũi tên: ${pointerPrizeAngle.toFixed(2)}°`);
+                console.log(`Index giải thưởng: ${prizeIndex}`);
+                console.log(`Giải thưởng: ${testPrizes[prizeIndex].name}`);
+                
+                return { 
+                    prize: testPrizes[prizeIndex], 
+                    index: prizeIndex 
+                };
+            }
+
+            // Lấy giải thưởng ngẫu nhiên (theo xác suất)
+            function getRandomPrizeIndex() {
                 const random = Math.random() * 100;
                 let cumulative = 0;
                 
-                for (const prize of testPrizes) {
-                    cumulative += prize.probability;
+                for (let i = 0; i < testPrizes.length; i++) {
+                    cumulative += testPrizes[i].probability;
                     if (random <= cumulative) {
-                        return { 
-                            prize: prize, 
-                            index: testPrizes.indexOf(prize) 
-                        };
+                        return i;
                     }
                 }
                 
-                return { prize: testPrizes[0], index: 0 };
+                return 0;
             }
 
             // Hiển thị kết quả
-            function showPrizeResult(prize) {
+            function showPrizeResult(prize, prizeIndex) {
                 const resultDiv = document.getElementById('wheel-result');
                 resultDiv.style.display = 'block';
                 
@@ -522,6 +541,7 @@
                         <p class="mb-1">Mũi tên chỉ vào:</p>
                         <h3 class="text-success">${prize.value.toLocaleString()} VNĐ</h3>
                         <p class="small">${prize.name}</p>
+                        <p class="small text-muted">(Ô số ${prizeIndex + 1})</p>
                     `;
                 } else {
                     resultDiv.className = 'alert alert-warning result-animation';
@@ -529,6 +549,7 @@
                         <h4 class="mb-2">💫 CHÚC BẠN MAY MẮN LẦN SAU!</h4>
                         <p class="mb-1">Mũi tên chỉ vào:</p>
                         <h4 class="text-warning">${prize.name}</h4>
+                        <p class="small text-muted">(Ô số ${prizeIndex + 1})</p>
                     `;
                 }
             }
@@ -563,21 +584,23 @@
                 resultDiv.style.display = 'none';
                 debugElement.textContent = '';
                 
-                // Chọn giải thưởng TRƯỚC
-                const { prize, index: prizeIndex } = getRandomPrize();
-                console.log(`=== SPIN ${spinCount} ===`);
-                console.log(`Giải thưởng: ${prize.name} (Index: ${prizeIndex})`);
+                // Chọn giải thưởng theo xác suất
+                const prizeIndex = getRandomPrizeIndex();
+                const selectedPrize = testPrizes[prizeIndex];
+                
+                console.log(`=== LẦN QUAY ${spinCount} ===`);
+                console.log(`Giải đã chọn: ${selectedPrize.name} (Index: ${prizeIndex})`);
                 
                 // Tính toán góc dừng
                 const stopAngle = calculateStopAngle(prizeIndex);
                 
                 // Cập nhật debug info
-                debugElement.textContent = `Giải: ${prizeIndex + 1}, Góc dừng: ${Math.round(stopAngle)}°`;
+                debugElement.textContent = `Giải: ${prizeIndex + 1} - ${selectedPrize.name}`;
                 
                 // Thực hiện animation
                 const spinDuration = 4;
                 
-                // Reset wheel về 0 độ (nhưng giữ nhãn)
+                // Reset wheel về 0 độ
                 wheel.style.transition = 'none';
                 wheel.style.transform = `rotate(0deg)`;
                 
@@ -593,7 +616,20 @@
                 
                 // Hiển thị kết quả sau khi quay xong
                 setTimeout(() => {
-                    showPrizeResult(prize);
+                    // Xác minh giải thưởng từ góc cuối cùng
+                    const verifiedPrize = getPrizeFromAngle(currentRotation);
+                    
+                    // Hiển thị kết quả (dùng giải đã xác minh)
+                    showPrizeResult(verifiedPrize.prize, verifiedPrize.index);
+                    
+                    // Kiểm tra xem giải có khớp không
+                    if (verifiedPrize.index !== prizeIndex) {
+                        console.warn(`⚠️ CẢNH BÁO: Giải không khớp! Đã chọn: ${prizeIndex}, Xác minh: ${verifiedPrize.index}`);
+                        debugElement.innerHTML += `<br><span class="text-danger">⚠️ Kiểm tra: Giải không khớp</span>`;
+                    } else {
+                        console.log(`✅ Giải thưởng khớp chính xác!`);
+                        debugElement.innerHTML += `<br><span class="text-success">✅ Giải khớp chính xác</span>`;
+                    }
                     
                     // Cho phép quay lại
                     setTimeout(() => {
