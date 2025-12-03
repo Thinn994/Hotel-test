@@ -200,6 +200,7 @@
             font-size: 12px;
             color: #666;
             margin-top: 5px;
+            min-height: 20px;
         }
         .prize-visual-guide {
             display: flex;
@@ -219,15 +220,6 @@
             transform: scale(1.5);
             box-shadow: 0 0 8px #ff0000;
             z-index: 2;
-        }
-        .wheel-segment {
-            position: absolute;
-            width: 50%;
-            height: 50%;
-            left: 0;
-            top: 0;
-            transform-origin: right bottom;
-            border-right: 2px solid rgba(255,255,255,0.5);
         }
     </style>
 </head>
@@ -307,35 +299,35 @@
                     <div class="col-md-6">
                         <div class="card mb-4">
                             <div class="card-header bg-success text-white">
-                                <h5 class="mb-0">🏆 Giải Thưởng (Thứ tự trên vòng quay)</h5>
+                                <h5 class="mb-0">🏆 Giải Thưởng</h5>
                             </div>
                             <div class="card-body">
-                                <div class="prize-item" style="border-left: 5px solid #ff6b6b;">
-                                    <strong>Ô 1: Chúc bạn may mắn lần sau</strong>
+                                <div class="prize-item">
+                                    <strong>Chúc bạn may mắn lần sau</strong>
                                     <span class="badge bg-secondary float-end">40%</span>
                                 </div>
-                                <div class="prize-item" style="border-left: 5px solid #4ecdc4;">
-                                    <strong>Ô 2: 50,000 VNĐ</strong>
+                                <div class="prize-item">
+                                    <strong>50,000 VNĐ</strong>
                                     <span class="badge bg-primary float-end">10%</span>
                                 </div>
-                                <div class="prize-item" style="border-left: 5px solid #45b7d1;">
-                                    <strong>Ô 3: Chúc bạn may mắn lần sau</strong>
+                                <div class="prize-item">
+                                    <strong>Chúc bạn may mắn lần sau</strong>
                                     <span class="badge bg-secondary float-end">25%</span>
                                 </div>
-                                <div class="prize-item" style="border-left: 5px solid #96ceb4;">
-                                    <strong>Ô 4: 100,000 VNĐ</strong>
+                                <div class="prize-item">
+                                    <strong>100,000 VNĐ</strong>
                                     <span class="badge bg-info float-end">5%</span>
                                 </div>
-                                <div class="prize-item" style="border-left: 5px solid #f7dc6f;">
-                                    <strong>Ô 5: Chúc bạn may mắn lần sau</strong>
+                                <div class="prize-item">
+                                    <strong>Chúc bạn may mắn lần sau</strong>
                                     <span class="badge bg-secondary float-end">15%</span>
                                 </div>
-                                <div class="prize-item" style="border-left: 5px solid #f8c471;">
-                                    <strong>Ô 6: 200,000 VNĐ</strong>
+                                <div class="prize-item">
+                                    <strong>200,000 VNĐ</strong>
                                     <span class="badge bg-warning float-end">3%</span>
                                 </div>
-                                <div class="prize-item" style="border-left: 5px solid #9b59b6;">
-                                    <strong>Ô 7: 500,000 VNĐ</strong>
+                                <div class="prize-item">
+                                    <strong>500,000 VNĐ</strong>
                                     <span class="badge bg-danger float-end">2%</span>
                                 </div>
                             </div>
@@ -383,7 +375,7 @@
                         <p class="text-muted small">Chế độ test - Không kiểm tra điều kiện</p>
                         <div class="spin-count" id="spin-count">Đã quay: 0 lần</div>
                         <div class="debug-info" id="debug-info"></div>
-                        <button id="spin-btn" class="btn participate-btn">QUAY THỬ</button>
+                        <button id="spin-btn" class="btn participate-btn mt-2">QUAY THỬ</button>
                     </div>
                 </div>
             </div>
@@ -393,15 +385,20 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // THỨ TỰ CHÍNH XÁC CỦA GIẢI THƯỞNG TRÊN VÒNG QUAY (từ 12 giờ theo chiều kim đồng hồ)
+            // THỨ TỰ GIẢI THƯỞNG TRÊN VÒNG QUAY THEO YÊU CẦU:
+            // Ô 1, 3, 5: Chúc may mắn lần sau
+            // Ô 7: 500K
+            // Ô 6: 200K
+            // Ô 4: 100K
+            // Ô 2: 50K
             const testPrizes = [
-                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 40, color: '#ff6b6b', index: 0 },     // Ô 1 - ĐỎ
-                { name: '50,000 VNĐ', value: 50000, probability: 10, color: '#4ecdc4', index: 1 },              // Ô 2 - XANH LÁ
-                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 25, color: '#45b7d1', index: 2 },   // Ô 3 - XANH DƯƠNG
-                { name: '100,000 VNĐ', value: 100000, probability: 5, color: '#96ceb4', index: 3 },           // Ô 4 - XANH LÁ NHẠT
-                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 15, color: '#f7dc6f', index: 4 },  // Ô 5 - VÀNG
-                { name: '200,000 VNĐ', value: 200000, probability: 3, color: '#f8c471', index: 5 },          // Ô 6 - CAM
-                { name: '500,000 VNĐ', value: 500000, probability: 2, color: '#9b59b6', index: 6 }           // Ô 7 - TÍM
+                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 40, color: '#ff6b6b', index: 0 },     // Ô 1
+                { name: '50,000 VNĐ', value: 50000, probability: 10, color: '#4ecdc4', index: 1 },              // Ô 2
+                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 25, color: '#45b7d1', index: 2 },   // Ô 3
+                { name: '100,000 VNĐ', value: 100000, probability: 5, color: '#96ceb4', index: 3 },           // Ô 4
+                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 15, color: '#f7dc6f', index: 4 },  // Ô 5
+                { name: '200,000 VNĐ', value: 200000, probability: 3, color: '#f8c471', index: 5 },          // Ô 6
+                { name: '500,000 VNĐ', value: 500000, probability: 2, color: '#9b59b6', index: 6 }           // Ô 7
             ];
 
             let spinCount = 0;
@@ -416,7 +413,7 @@
                 guide.innerHTML = '';
                 
                 const numPrizes = testPrizes.length;
-                const sectorAngle = 360 / numPrizes; // 51.42857° mỗi ô
+                const sectorAngle = 360 / numPrizes;
                 const radius = 185;
 
                 testPrizes.forEach((prize, index) => {
@@ -428,7 +425,6 @@
                     const label = document.createElement('div');
                     label.className = 'prize-label';
                     label.dataset.index = index;
-                    label.dataset.prize = prize.value > 0 ? `${prize.value} VNĐ` : prize.name;
                     
                     label.style.left = `calc(50% + ${offsetX}px)`;
                     label.style.top = `calc(50% + ${offsetY}px)`;
@@ -443,6 +439,7 @@
                         label.style.width = '100px';
                         label.style.lineHeight = '1.2';
                     } else {
+                        // Hiển thị đúng như yêu cầu: 500K, 200K, 100K, 50K
                         label.textContent = `${(prize.value / 1000).toFixed(0)}K VNĐ`;
                         label.style.fontSize = '12px';
                         label.style.width = '80px';
@@ -455,44 +452,41 @@
                     dot.className = 'prize-dot';
                     dot.style.backgroundColor = prize.color;
                     dot.dataset.index = index;
-                    dot.title = `Ô ${index + 1}: ${prize.value > 0 ? prize.value.toLocaleString() + ' VNĐ' : 'May mắn lần sau'}`;
+                    dot.title = `Ô ${index + 1}: ${prize.value > 0 ? (prize.value/1000).toFixed(0) + 'K VNĐ' : 'May mắn lần sau'}`;
                     guide.appendChild(dot);
                 });
             }
 
-            // CÔNG THỨC ĐƠN GIẢN VÀ CHÍNH XÁC NHẤT
+            // Tính góc dừng để mũi tên chỉ đúng vào giải thưởng
             function calculateStopAngle(prizeIndex) {
                 const numPrizes = 7;
-                const sectorAngle = 360 / numPrizes; // 51.42857° mỗi ô
+                const sectorAngle = 360 / numPrizes;
                 
                 // Mũi tên ở vị trí 12 giờ (0 độ)
                 const pointerAngle = 0;
                 
-                // Góc TRUNG TÂM của giải thưởng (từ 12 giờ theo chiều kim đồng hồ)
+                // Góc TRUNG TÂM của giải thưởng
                 const prizeCenterAngle = prizeIndex * sectorAngle + sectorAngle / 2;
                 
-                // CÔNG THỨC ĐÚNG: 
-                // Để giải thưởng nằm Ở DƯỚI MŨI TÊN, ta cần quay sao cho:
-                // Giải thưởng di chuyển ĐẾN vị trí (360 - pointerAngle) độ
-                // Vì pointerAngle = 0, nên cần quay sao cho giải thưởng ở 0 độ
+                // CÔNG THỨC: Để giải thưởng nằm ở vị trí mũi tên (0 độ)
+                // Giải thưởng ban đầu ở góc prizeCenterAngle
+                // Sau khi quay stopAngle độ, nó sẽ ở (prizeCenterAngle + stopAngle) % 360
+                // Ta muốn: (prizeCenterAngle + stopAngle) % 360 = pointerAngle = 0
                 // => stopAngle = 360 - prizeCenterAngle
                 
                 let stopAngle = 360 - prizeCenterAngle;
                 
-                // Thêm ít nhất 5 vòng quay (1800 độ) để hiệu ứng
+                // Thêm 5 vòng quay (1800 độ) để hiệu ứng
                 const minRotations = 5;
                 stopAngle += minRotations * 360;
                 
-                console.log(`=== TÍNH TOÁN GÓC ===`);
-                console.log(`Ô số: ${prizeIndex + 1}`);
-                console.log(`Giải: ${testPrizes[prizeIndex].value > 0 ? testPrizes[prizeIndex].value + ' VNĐ' : 'May mắn lần sau'}`);
-                console.log(`Góc trung tâm giải: ${prizeCenterAngle.toFixed(2)}°`);
-                console.log(`Góc dừng: ${stopAngle.toFixed(2)}°`);
+                // Đảm bảo góc dương
+                stopAngle = stopAngle % 360;
                 
                 return stopAngle;
             }
 
-            // Xác định giải thưởng từ góc quay cuối cùng (KIỂM TRA)
+            // Xác định giải thưởng từ góc quay cuối cùng
             function getPrizeFromAngle(finalAngle) {
                 const numPrizes = 7;
                 const sectorAngle = 360 / numPrizes;
@@ -501,15 +495,11 @@
                 const normalizedAngle = ((finalAngle % 360) + 360) % 360;
                 
                 // Giải thưởng nào đang ở vị trí 0 độ (mũi tên)?
-                // Nếu vòng quay quay X độ, thì giải thưởng ban đầu ở góc Y sẽ di chuyển đến (Y + X) % 360
-                // Ta tìm Y sao cho (Y + X) % 360 ≈ 0
+                // Giải thưởng ban đầu ở góc Y, sau khi quay X độ sẽ ở (Y + X) % 360
+                // Ta muốn (Y + X) % 360 = 0 => Y = 360 - X
                 
                 let prizeAngle = (360 - normalizedAngle) % 360;
                 const prizeIndex = Math.floor(prizeAngle / sectorAngle) % numPrizes;
-                
-                console.log(`=== KIỂM TRA ===`);
-                console.log(`Góc cuối: ${normalizedAngle.toFixed(2)}°`);
-                console.log(`Giải ở mũi tên: index ${prizeIndex}, góc ${prizeAngle.toFixed(2)}°`);
                 
                 return { 
                     prize: testPrizes[prizeIndex], 
@@ -525,7 +515,6 @@
                 for (let i = 0; i < testPrizes.length; i++) {
                     cumulative += testPrizes[i].probability;
                     if (random <= cumulative) {
-                        console.log(`Random: ${random.toFixed(2)} -> Chọn ô ${i + 1} (${testPrizes[i].value > 0 ? testPrizes[i].value + ' VNĐ' : 'May mắn lần sau'})`);
                         return i;
                     }
                 }
@@ -555,7 +544,7 @@
                         <p class="mb-1">Mũi tên chỉ vào:</p>
                         <h3 class="text-success">${prize.value.toLocaleString()} VNĐ</h3>
                         <p class="small">${prize.name}</p>
-                        <p class="small text-muted">(Ô số ${prizeIndex + 1}, màu: <span style="color:${prize.color}">●</span>)</p>
+                        <p class="small text-muted">(Ô số ${prizeIndex + 1})</p>
                     `;
                 } else {
                     resultDiv.className = 'alert alert-warning result-animation';
@@ -563,7 +552,7 @@
                         <h4 class="mb-2">💫 CHÚC BẠN MAY MẮN LẦN SAU!</h4>
                         <p class="mb-1">Mũi tên chỉ vào:</p>
                         <h4 class="text-warning">${prize.name}</h4>
-                        <p class="small text-muted">(Ô số ${prizeIndex + 1}, màu: <span style="color:${prize.color}">●</span>)</p>
+                        <p class="small text-muted">(Ô số ${prizeIndex + 1})</p>
                     `;
                 }
             }
@@ -578,7 +567,7 @@
                 }, 100);
             });
 
-            // Xử lý quay
+            // Xử lý quay - ĐÃ BỎ DÒNG "ĐÃ CHỌN Ô..."
             document.getElementById('spin-btn').addEventListener('click', function() {
                 if (isSpinning) return;
                 
@@ -596,20 +585,14 @@
                 spinCountElement.textContent = `Đã quay: ${spinCount} lần`;
                 
                 resultDiv.style.display = 'none';
-                debugElement.textContent = '';
+                debugElement.textContent = ''; // CHỈ HIỂN THỊ THÔNG TIN DEBUG, KHÔNG HIỂN THỊ "ĐÃ CHỌN Ô..."
                 
                 // Chọn giải thưởng theo xác suất
                 const prizeIndex = getRandomPrizeIndex();
                 const selectedPrize = testPrizes[prizeIndex];
                 
-                console.log(`\n=== LẦN QUAY ${spinCount} ===`);
-                console.log(`Đã chọn: Ô ${prizeIndex + 1} - ${selectedPrize.value > 0 ? selectedPrize.value + ' VNĐ' : 'May mắn lần sau'}`);
-                
                 // Tính toán góc dừng CHÍNH XÁC
                 const stopAngle = calculateStopAngle(prizeIndex);
-                
-                // Cập nhật debug info
-                debugElement.textContent = `Đã chọn: Ô ${prizeIndex + 1} - ${selectedPrize.value > 0 ? selectedPrize.value.toLocaleString() + ' VNĐ' : 'May mắn lần sau'}`;
                 
                 // Reset wheel về 0 độ
                 wheel.style.transition = 'none';
@@ -633,16 +616,12 @@
                     // Hiển thị kết quả
                     showPrizeResult(verifiedPrize.prize, verifiedPrize.index);
                     
-                    // Kiểm tra xem giải có khớp không
+                    // Kiểm tra và hiển thị thông báo nếu có lỗi
                     if (verifiedPrize.index !== prizeIndex) {
-                        console.error(`❌ LỖI NGHIÊM TRỌNG: Giải không khớp!`);
-                        console.error(`Đã chọn: ô ${prizeIndex + 1} (${selectedPrize.name})`);
-                        console.error(`Mũi tên chỉ: ô ${verifiedPrize.index + 1} (${verifiedPrize.prize.name})`);
-                        debugElement.innerHTML += `<br><span class="text-danger">❌ LỖI: Mũi tên chỉ sai ô!</span>`;
-                        debugElement.innerHTML += `<br><span class="text-danger">Đã chọn ô ${prizeIndex + 1}, nhưng mũi tên chỉ ô ${verifiedPrize.index + 1}</span>`;
+                        debugElement.innerHTML = `<span class="text-danger">⚠️ Đã xảy ra lỗi: Giải thưởng không khớp</span>`;
                     } else {
-                        console.log(`✅ CHÍNH XÁC: Mũi tên chỉ đúng vào ô ${prizeIndex + 1}`);
-                        debugElement.innerHTML += `<br><span class="text-success">✅ Mũi tên chỉ đúng vào ô ${prizeIndex + 1}</span>`;
+                        // KHÔNG HIỂN THỊ "ĐÃ CHỌN Ô..." NHƯ YÊU CẦU
+                        debugElement.innerHTML = ''; // Để trống
                     }
                     
                     // Cho phép quay lại
@@ -660,13 +639,7 @@
             alertDiv.className = 'alert alert-info alert-dismissible fade show mt-3';
             alertDiv.innerHTML = `
                 <strong>🧪 CHẾ ĐỘ TEST ĐANG BẬT</strong><br>
-                • Ô 1: May mắn lần sau (40%)<br>
-                • Ô 2: 50,000 VNĐ (10%)<br>
-                • Ô 3: May mắn lần sau (25%)<br>
-                • Ô 4: 100,000 VNĐ (5%)<br>
-                • Ô 5: May mắn lần sau (15%)<br>
-                • Ô 6: 200,000 VNĐ (3%)<br>
-                • Ô 7: 500,000 VNĐ (2%)<br>
+                Bạn có thể test vòng quay mà không cần kiểm tra điều kiện tài khoản.
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
             document.getElementById('event-status').appendChild(alertDiv);
