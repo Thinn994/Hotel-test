@@ -69,15 +69,15 @@
             transform-origin: center;
             will-change: transform;
             backface-visibility: hidden;
-            transition: transform 4s cubic-bezier(0.33, 0, 0.67, 1);
-            /* XOAY 90 ĐỘ NGƯỢC CHIỀU KIM ĐỒNG HỒ */
+            /* HIỆU ỨNG XOAY MƯỢT: NHANH DẦN RỒI CHẬM DẦN */
+            transition: transform 4.5s cubic-bezier(0.25, 0.1, 0.25, 1); /* THAY ĐỔI Ở ĐÂY */
             transform: rotate(0deg);
         }
         .wheel-pointer {
             position: absolute;
             top: -35px;
             left: 50%;
-            transform: translateX(-50%) rotate(90deg);
+            transform: translateX(-50%) rotate(180deg);
             width: 40px;
             height: 50px;
             background: linear-gradient(45deg, #ff6b6b, #ff8e53);
@@ -407,7 +407,7 @@
             let isSpinning = false;
             let currentRotation = 0;
 
-            // Tạo nhãn giải thưởng - ĐÃ ĐIỀU CHỈNH CHO VÒNG QUAY ĐÃ XOAY -90 ĐỘ
+            // Tạo nhãn giải thưởng
             function createPrizeLabels() {
                 const wheel = document.getElementById('prize-wheel');
                 const guide = document.getElementById('prize-guide');
@@ -419,10 +419,7 @@
                 const radius = 185;
 
                 testPrizes.forEach((prize, index) => {
-                    // Vòng quay đã xoay -90 độ, nên chúng ta cần điều chỉnh góc bắt đầu
-                    // Góc bắt đầu thay vì 0 độ (12h) thì bây giờ là 90 độ (3h) 
-                    // Vì đã xoay ngược 90 độ
-                    const startOffset = -92; // Độ offset do vòng quay đã xoay -90 độ
+                    const startOffset = -92;
                     
                     const angle = ((index * sectorAngle + sectorAngle / 2) + startOffset) * Math.PI / 180;
                     const offsetX = Math.cos(angle) * (radius - 70);
@@ -435,7 +432,6 @@
                     label.style.left = `calc(50% + ${offsetX}px)`;
                     label.style.top = `calc(50% + ${offsetY}px)`;
                     
-                    // Điều chỉnh góc xoay chữ cho phù hợp với vòng quay đã xoay
                     const textRotation = (index * sectorAngle + sectorAngle / 2) + startOffset;
                     label.style.transform = `translate(-50%, -50%) rotate(${textRotation}deg)`;
                     
@@ -446,7 +442,6 @@
                         label.style.width = '100px';
                         label.style.lineHeight = '1.2';
                     } else {
-                        // Hiển thị đúng như yêu cầu: 500K, 200K, 100K, 50K
                         label.textContent = `${(prize.value / 1000).toFixed(0)}K VNĐ`;
                         label.style.fontSize = '12px';
                         label.style.width = '80px';
@@ -454,7 +449,6 @@
                     
                     wheel.appendChild(label);
                     
-                    // Tạo guide dưới vòng quay
                     const dot = document.createElement('div');
                     dot.className = 'prize-dot';
                     dot.style.backgroundColor = prize.color;
@@ -464,54 +458,36 @@
                 });
             }
 
-            // Tính góc dừng để mũi tên chỉ đúng vào giải thưởng - ĐÃ ĐIỀU CHỈNH CHO VÒNG QUAY ĐÃ XOAY
+            // Tính góc dừng để mũi tên chỉ đúng vào giải thưởng
             function calculateStopAngle(prizeIndex) {
                 const numPrizes = 7;
                 const sectorAngle = 360 / numPrizes;
                 
-                // Mũi tên ở vị trí 12 giờ (0 độ)
                 const pointerAngle = 180;
-                
-                // Góc TRUNG TÂM của giải thưởng (tính từ 12h, sau khi vòng quay đã xoay -90 độ)
-                // Vì vòng quay đã xoay -90 độ, nên chúng ta cần cộng thêm 90 độ để bù lại
                 const prizeCenterAngle = (prizeIndex * sectorAngle + sectorAngle / 2) + 90;
-                
-                // CÔNG THỨC: Để giải thưởng nằm ở vị trí mũi tên (0 độ)
-                // Vòng quay đã xoay -90 độ, nên công thức cần điều chỉnh
-                // Giải thưởng ban đầu ở góc prizeCenterAngle
-                // Sau khi quay stopAngle độ, nó sẽ ở (prizeCenterAngle + stopAngle) % 360
-                // Ta muốn: (prizeCenterAngle + stopAngle) % 360 = pointerAngle = 0
-                // => stopAngle = 360 - prizeCenterAngle
                 
                 let stopAngle = 360 - prizeCenterAngle;
                 
-                // Thêm 5 vòng quay (1800 độ) để hiệu ứng
                 const minRotations = 5;
                 stopAngle += minRotations * 360;
                 
-                // Đảm bảo góc dương
                 stopAngle = stopAngle % 360;
                 
                 return stopAngle;
             }
 
-            // Xác định giải thưởng từ góc quay cuối cùng - ĐÃ ĐIỀU CHỈNH CHO VÒNG QUAY ĐÃ XOAY
+            // Xác định giải thưởng từ góc quay cuối cùng
             function getPrizeFromAngle(finalAngle) {
                 const numPrizes = 7;
                 const sectorAngle = 360 / numPrizes;
                 
-                // Vòng quay đã xoay -90 độ từ ban đầu
                 const initialOffset = -90;
                 const totalRotation = (finalAngle + initialOffset) % 360;
                 
-                // Normalize góc về 0-360
                 const normalizedAngle = ((totalRotation % 360) + 360) % 360;
                 
-                // Giải thưởng nào đang ở vị trí 0 độ (mũi tên)?
-                // Cần tính toán với offset -90 độ
                 let prizeAngle = (360 - normalizedAngle) % 360;
                 
-                // Trừ đi offset 90 độ để quay về vị trí ban đầu
                 prizeAngle = (prizeAngle - 90 + 360) % 360;
                 
                 const prizeIndex = Math.floor(prizeAngle / sectorAngle) % numPrizes;
@@ -544,10 +520,8 @@
                 
                 resultDiv.style.display = 'block';
                 
-                // Reset tất cả dots
                 dots.forEach(dot => dot.classList.remove('active'));
                 
-                // Highlight dot tương ứng
                 if (dots[prizeIndex]) {
                     dots[prizeIndex].classList.add('active');
                 }
@@ -582,7 +556,7 @@
                 }, 100);
             });
 
-            // Xử lý quay - ĐÃ ĐIỀU CHỈNH CHO VÒNG QUAY ĐÃ XOAY
+            // Xử lý quay - ĐÃ CẬP NHẬT CHO HIỆU ỨNG MƯỢT HƠN
             document.getElementById('spin-btn').addEventListener('click', function() {
                 if (isSpinning) return;
                 
@@ -602,51 +576,42 @@
                 resultDiv.style.display = 'none';
                 debugElement.textContent = '';
                 
-                // Chọn giải thưởng theo xác suất
                 const prizeIndex = getRandomPrizeIndex();
                 const selectedPrize = testPrizes[prizeIndex];
                 
-                // Tính toán góc dừng CHÍNH XÁC (đã điều chỉnh cho vòng quay xoay -90 độ)
                 const stopAngle = calculateStopAngle(prizeIndex);
                 
-                // Reset wheel về -90 độ (vị trí ban đầu đã xoay)
+                // Reset wheel về -90 độ
                 wheel.style.transition = 'none';
                 wheel.style.transform = `rotate(-90deg)`;
                 
-                // Force reflow
                 void wheel.offsetWidth;
                 
-                // Bắt đầu animation
-                wheel.style.transition = `transform 4s cubic-bezier(0.33, 0, 0.67, 1)`;
+                // HIỆU ỨNG XOAY MƯỢT: NHANH DẦN RỒI CHẬM DẦN
+                wheel.style.transition = `transform 4.5s cubic-bezier(0.25, 0.1, 0.25, 1)`; // THAY ĐỔI Ở ĐÂY
                 wheel.style.transform = `rotate(${stopAngle}deg)`;
                 
-                // Cập nhật current rotation
                 currentRotation = stopAngle % 360;
                 
-                // Hiển thị kết quả sau khi quay xong
+                // Cập nhật timeout cho 4.5 giây thay vì 4 giây
                 setTimeout(() => {
-                    // Xác minh giải thưởng từ góc cuối cùng
                     const verifiedPrize = getPrizeFromAngle(currentRotation);
                     
-                    // Hiển thị kết quả
                     showPrizeResult(verifiedPrize.prize, verifiedPrize.index);
                     
-                    // Kiểm tra và hiển thị thông báo nếu có lỗi
                     if (verifiedPrize.index !== prizeIndex) {
                         debugElement.innerHTML = `<span class="text-danger">⚠️ Đã xảy ra lỗi: Giải thưởng không khớp</span>`;
                     } else {
-                        // KHÔNG HIỂN THỊ "ĐÃ CHỌN Ô..." NHƯ YÊU CẦU
-                        debugElement.innerHTML = ''; // Để trống
+                        debugElement.innerHTML = '';
                     }
                     
-                    // Cho phép quay lại
                     setTimeout(() => {
                         isSpinning = false;
                         btn.disabled = false;
                         btn.innerHTML = 'QUAY LẦN NỮA';
                     }, 1000);
                     
-                }, 4000);
+                }, 4500); // Cập nhật từ 4000 lên 4500ms
             });
 
             // Thông báo chế độ test
