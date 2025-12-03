@@ -422,7 +422,7 @@
                     // Vòng quay đã xoay -90 độ, nên chúng ta cần điều chỉnh góc bắt đầu
                     // Góc bắt đầu thay vì 0 độ (12h) thì bây giờ là 90 độ (3h) 
                     // Vì đã xoay ngược 90 độ
-                    const startOffset = 0; // Độ offset do vòng quay đã xoay -90 độ
+                    const startOffset = -92; // Độ offset do vòng quay đã xoay -90 độ
                     
                     const angle = ((index * sectorAngle + sectorAngle / 2) + startOffset) * Math.PI / 180;
                     const offsetX = Math.cos(angle) * (radius - 70);
