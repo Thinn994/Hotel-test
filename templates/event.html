@@ -701,26 +701,27 @@
             // Xác định giải thưởng từ góc quay cuối cùng
             function getPrizeFromAngle(finalAngle) {
                 const numPrizes = 7;
-                const sectorAngle = 360 / numPrizes;
+                const sectorAngle = 360 / numPrizes; // 51.4286 độ mỗi ô
                 
-                const initialOffset = -90;
-                const totalRotation = (finalAngle + initialOffset) % 360;
+                // Mũi tên ở góc 0 độ (phía trên), nhưng ô đầu tiên bắt đầu ở -90 độ
+                // Tính góc thực tế mà mũi tên đang chỉ
+                const normalizedAngle = ((finalAngle % 360) + 360) % 360;
                 
-                const normalizedAngle = ((totalRotation % 360) + 360) % 360;
+                // Tính góc tương ứng trên vòng quay (tính từ mũi tên)
+                let prizeAngle = (360 - normalizedAngle + 90) % 360;
                 
-                let prizeAngle = (360 - normalizedAngle) % 360;
+                // Xác định ô giải thưởng
+                let prizeIndex = Math.floor(prizeAngle / sectorAngle) % numPrizes;
                 
-                prizeAngle = (prizeAngle - 90 + 360) % 360;
-                
-                const prizeIndex = Math.floor(prizeAngle / sectorAngle) % numPrizes;
+                console.log(`🎯 Angle calc: Final=${finalAngle.toFixed(2)}°, Normalized=${normalizedAngle.toFixed(2)}°, PrizeAngle=${prizeAngle.toFixed(2)}°, Index=${prizeIndex}`);
                 
                 return { 
                     prize: testPrizes[prizeIndex], 
                     index: prizeIndex 
                 };
             }
-
-            // Xử lý quay
+            
+            // THÊM DEBUG VÀO PHẦN XỬ LÝ QUAY
             document.getElementById('spin-btn').addEventListener('click', function() {
                 if (isSpinning) return;
                 
@@ -766,13 +767,13 @@
                     spinCountElement.textContent = `Đã quay: ${spinCount} lần`;
                     
                     resultDiv.style.display = 'none';
-                    debugElement.textContent = '';
                     
-                    // Tính góc quay dựa trên giải thưởng
-                    const prizeIndex = testPrizes.findIndex(p => p.value === data.prize_value);
+                    // Lấy index giải thưởng từ server
+                    const serverPrizeIndex = testPrizes.findIndex(p => p.value === data.prize_value);
+                    console.log(`🎲 Server says: Prize index = ${serverPrizeIndex}, Value = ${data.prize_value}`);
                     
-                    // Tính góc quay
-                    const stopAngle = calculateStopAngle(prizeIndex);
+                    // Tính góc quay (vẫn dùng logic cũ)
+                    const stopAngle = calculateStopAngle(serverPrizeIndex);
                     
                     // Reset wheel
                     wheel.style.transition = 'none';
@@ -788,7 +789,21 @@
                     
                     // Hiển thị kết quả sau khi quay xong
                     setTimeout(() => {
-                        showPrizeResult(data.prize_name, data.prize_value, prizeIndex);
+                        // Xác định giải thưởng THỰC TẾ từ góc quay
+                        const actualPrize = getPrizeFromAngle(currentRotation);
+                        
+                        // DEBUG: Hiển thị thông tin
+                        debugElement.innerHTML = `
+                            <div class="small">
+                                <strong>Debug:</strong><br>
+                                • Server prize: Ô ${serverPrizeIndex + 1} (${data.prize_name})<br>
+                                • Actual prize: Ô ${actualPrize.index + 1} (${actualPrize.prize.name})<br>
+                                • Final angle: ${currentRotation.toFixed(2)}°
+                            </div>
+                        `;
+                        
+                        // HIỂN THỊ KẾT QUẢ THỰC TẾ (theo vị trí mũi tên)
+                        showPrizeResult(actualPrize.prize, actualPrize.index);
                         
                         // Cập nhật UI sau khi quay
                         setTimeout(() => {
@@ -811,20 +826,22 @@
                     btn.innerHTML = 'QUAY NGAY';
                 });
             });
-
-            // Hiển thị kết quả
-            function showPrizeResult(prizeName, prizeValue, prizeIndex) {
+            
+            // HOẶC ĐƠN GIẢN HƠN - LUÔN DÙNG INDEX TỪ SERVER (nếu server đúng)
+            function showPrizeResultSimple(prizeName, prizeValue, prizeIndex) {
                 const resultDiv = document.getElementById('wheel-result');
                 const dots = document.querySelectorAll('.prize-dot');
                 
                 resultDiv.style.display = 'block';
                 
+                // Highlight dot tương ứng với index từ server
                 dots.forEach(dot => dot.classList.remove('active'));
                 
                 if (dots[prizeIndex]) {
                     dots[prizeIndex].classList.add('active');
                 }
                 
+                // Luôn hiển thị đúng giải thưởng từ server
                 if (prizeValue > 0) {
                     resultDiv.className = 'alert alert-success result-animation';
                     resultDiv.innerHTML = `
@@ -851,6 +868,8 @@
                         </div>
                     `;
                 }
+                
+                console.log(`🏆 Hiển thị kết quả: Ô ${prizeIndex + 1} - ${prizeName}`);
             }
 
             // Kiểm tra ngay khi trang tải
