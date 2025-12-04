@@ -701,25 +701,24 @@
             // Tính góc dừng CHÍNH XÁC
             function calculateStopAngle(prizeIndex) {
                 const numPrizes = 7;
-                const sectorAngle = 360 / numPrizes;  // 51.43 độ mỗi ô
+                const sectorAngle = 360 / numPrizes;  // 51.4286 độ mỗi ô
                 
-                // Mũi tên chỉ lên trên (0 độ), nhưng ô đầu tiên bắt đầu ở góc -90 độ (trên cùng)
-                // Chúng ta cần quay để prize nằm ở vị trí mũi tên (180 độ từ trên)
+                console.log(`🎯 Tính góc dừng cho ô số: ${prizeIndex + 1} (index: ${prizeIndex})`);
                 
-                // Công thức đúng:
-                // 1. Tính góc tâm của ô giải thưởng (tính từ -90 độ)
+                // 1. Tính góc tâm của ô giải thưởng (tính từ 0 độ = phía trên)
+                // Ô 0 bắt đầu từ -90 độ (trên cùng)
                 const prizeCenterAngle = (prizeIndex * sectorAngle) + (sectorAngle / 2) - 90;
                 
-                // 2. Quay ngược lại để đưa ô giải thưởng đến vị trí mũi tên (180 độ từ trên)
-                // Mũi tên ở góc 180 độ (dưới đáy)
-                let stopAngle = 360 - prizeCenterAngle + 180;
+                // 2. Mũi tên nằm ở 180 độ (phía dưới)
+                // Để ô giải thưởng nằm ở mũi tên, ta cần quay cho góc tâm của ô = 180 độ
+                let stopAngle = 180 - prizeCenterAngle;
                 
-                // 3. Thêm vài vòng quay cho hiệu ứng
-                const minRotations = 5;
+                // 3. Thêm vài vòng quay cho hiệu ứng (ít nhất 3 vòng)
+                const minRotations = 3;
                 stopAngle += minRotations * 360;
                 
-                // Debug
-                console.log(`🎯 Prize index: ${prizeIndex}, Center angle: ${prizeCenterAngle.toFixed(2)}°, Stop angle: ${stopAngle.toFixed(2)}°`);
+                console.log(`📊 Góc tâm ô: ${prizeCenterAngle.toFixed(2)}°`);
+                console.log(`🎡 Góc dừng: ${stopAngle.toFixed(2)}°`);
                 
                 return stopAngle;
             }
