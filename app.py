@@ -204,23 +204,26 @@ def get_used_spins(username):
     return count
 
 def use_spin(username):
-    """Ghi nhận một lượt quay"""
+    """Ghi nhận một lượt quay - FIXED"""
     current_year = datetime.now().year
     current_month = datetime.now().month
     
     # Kiểm tra thời gian sự kiện
     if not (EVENT_CONFIG['start_month'] <= current_month <= EVENT_CONFIG['end_month']):
+        print(f"❌ Không trong thời gian sự kiện: tháng {current_month}")
         return False
     
-    # Kiểm tra user có trong bookings không
-    if not user_exists_in_bookings(username):
-        return False
+    # FIX: Bỏ điều kiện user phải có booking
+    # Mỗi user đều có 1 lượt miễn phí, không cần booking
     
     # Tính lượt quay còn lại
     spin_info = get_max_spins(username)
     used_spins = get_used_spins(username)
     
+    print(f"📊 User {username}: total={spin_info['total_spins']}, used={used_spins}")
+    
     if used_spins >= spin_info['total_spins']:
+        print(f"❌ {username} đã hết lượt quay")
         return False
     
     # Kiểm tra xem đây có phải là lượt miễn phí đầu tiên không
@@ -231,6 +234,7 @@ def use_spin(username):
         writer = csv.writer(f)
         writer.writerow([username, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), current_year, is_free_spin])
     
+    print(f"✅ Đã ghi lượt quay cho {username}, free_spin={is_free_spin}")
     return True
 
 def get_random_prize():
@@ -2107,3 +2111,4 @@ init_event_files()
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
