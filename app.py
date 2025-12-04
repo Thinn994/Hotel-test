@@ -111,7 +111,7 @@ def user_exists_in_bookings(username):
     return False
 
 def calculate_event_spending(username):
-    """Tính tổng chi tiêu TRONG THỜI GIAN SỰ KIỆN từ bookings.csv"""
+    """Tính tổng chi tiêu TRONG THỜI GIAN SỰ KIỆN từ bookings.csv - ĐÃ SỬA"""
     total = 0
     
     if not os.path.exists(BOOKINGS_CSV):
@@ -123,44 +123,33 @@ def calculate_event_spending(username):
         reader = csv.DictReader(f)
         for row in reader:
             if (row['username'] == username and 
-                row['status'] == 'completed'):
+                row['status'].lower() == 'completed'):
                 
                 try:
                     booking_time = datetime.strptime(row['booking_time'], '%Y-%m-%d %H:%M:%S')
-                    # CHỈ tính booking trong thời gian sự kiện (tháng 1-8)
+                    # CHỈ tính booking trong thời gian sự kiện (tháng 8-12)
                     if (booking_time.year == current_year and 
                         EVENT_CONFIG['start_month'] <= booking_time.month <= EVENT_CONFIG['end_month']):
                         total += float(row['price'])
                 except (ValueError, KeyError):
                     continue
     
-    # Cộng thêm giải thưởng từ sự kiện (nếu có)
-    if os.path.exists(EVENT_PRIZES_CSV):
-        with open(EVENT_PRIZES_CSV, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                if (row['username'] == username):
-                    try:
-                        prize_time = datetime.strptime(row['created_at'], '%Y-%m-%d %H:%M:%S')
-                        if (prize_time.year == current_year and 
-                            EVENT_CONFIG['start_month'] <= prize_time.month <= EVENT_CONFIG['end_month']):
-                            total += float(row['prize_value'])
-                    except (ValueError, KeyError):
-                        continue
+    # ❌ KHÔNG cộng thêm giải thưởng từ sự kiện nữa
+    # Vì giải thưởng đã được cộng trực tiếp vào total_spent của user
     
     return total
 
 def get_max_spins(username):
     """Tính tổng số lượt quay tối đa = 1 lượt miễn phí + lượt từ chi tiêu + lượt từ rank"""
-    # Lấy rank của user
+    # Lấy total_spent từ users_db (đã bao gồm giải thưởng)
     user_data = users_db.get(username, {})
-    total_spent = user_data.get('total_spent', 0)
+    total_spent = user_data.get('total_spent', 0)  # ✅ Đã có giải thưởng
     rank = get_user_rank(total_spent)
     
     # 1 lượt MIỄN PHÍ ban đầu cho mỗi tài khoản
     free_spin = 1
     
-    # Tính lượt từ chi tiêu
+    # Tính lượt từ chi tiêu (dùng total_spent đã có giải thưởng)
     spend_spins = 0
     for threshold in EVENT_CONFIG['spend_thresholds']:
         if total_spent >= threshold:
@@ -171,6 +160,8 @@ def get_max_spins(username):
     
     # Tổng lượt quay
     total_spins = free_spin + spend_spins + rank_bonus
+    
+    print(f"💰 {username}: total_spent={total_spent:,}, spend_spins={spend_spins}, rank={rank}, rank_bonus={rank_bonus}")
     
     return {
         'total_spins': total_spins,
@@ -246,57 +237,21 @@ def get_random_prize():
     return random.choice(prizes)
 
 def update_user_prize(username, prize_value, prize_name):
-    """Cập nhật giải thưởng cho user và cộng vào tổng chi tiêu"""
-    # Ghi vào event_prizes.csv
+    """Cập nhật giải thưởng cho user - CHỈ cộng vào total_spent"""
+    # 1. Ghi giải thưởng vào event_prizes.csv
     with open(EVENT_PRIZES_CSV, 'a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow([username, prize_value, prize_name, datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
     
-    # Cập nhật tổng chi tiêu trong users_db
+    # 2. Cập nhật tổng chi tiêu trong users_db (CHÍNH)
     if username in users_db:
         users_db[username]['total_spent'] += prize_value
-        save_users(users_db)
+        save_users(users_db)  # Lưu ngay vào CSV
+        
+        print(f"✅ Đã cộng {prize_value:,} VNĐ vào total_spent của user {username}")
+        print(f"💰 Total_spent mới: {users_db[username]['total_spent']:,} VNĐ")
     
-    # Thêm booking giả để cộng vào tổng chi tiêu
-    add_prize_to_booking_csv(username, prize_value)
-
-def add_prize_to_booking_csv(username, prize_value):
-    """Thêm giải thưởng vào booking.csv như một booking đặc biệt"""
-    try:
-        # Tạo booking đặc biệt cho giải thưởng
-        special_booking = {
-            "hotel_name": "🎁 Giải thưởng Vòng Quay Tử Thần",
-            "room_type": "Phần thưởng đặc biệt",
-            "price": float(prize_value),
-            "user_name": username,
-            "phone": "",
-            "email": users_db.get(username, {}).get('email', ''),
-            "num_adults": 1,
-            "num_children": 0,
-            "checkin_date": datetime.now().strftime("%Y-%m-%d"),
-            "nights": 1,
-            "special_requests": f"Giải thưởng từ Vòng Quay Tử Thần: {prize_value:,} VNĐ",
-            "booking_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "status": "completed",
-            "username": username,
-            "user_email": users_db.get(username, {}).get('email', ''),
-            "booking_code": f"PRIZE_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        }
-        
-        # Đọc file bookings hiện tại
-        if os.path.exists(BOOKINGS_CSV):
-            df = pd.read_csv(BOOKINGS_CSV, encoding='utf-8-sig')
-        else:
-            df = pd.DataFrame(columns=special_booking.keys())
-        
-        # Thêm booking mới
-        df = pd.concat([df, pd.DataFrame([special_booking])], ignore_index=True)
-        df.to_csv(BOOKINGS_CSV, index=False, encoding='utf-8-sig')
-        
-        print(f"✅ Đã thêm giải thưởng {prize_value:,} VNĐ vào booking.csv cho user {username}")
-        
-    except Exception as e:
-        print(f"❌ Lỗi khi thêm giải thưởng vào booking.csv: {e}")
+    # 3. KHÔNG thêm booking giả nữa (đã xóa add_prize_to_booking_csv)
 
 def generate_booking_code():
     return str(random.randint(10000000, 99999999))
@@ -1995,12 +1950,11 @@ def event_page():
 
 @app.route('/event/check-eligibility')
 def check_eligibility():
-    """Kiểm tra điều kiện tham gia sự kiện với 1 lượt miễn phí"""
+    """Kiểm tra điều kiện tham gia sự kiện"""
     if 'user' not in session:
         return jsonify({'eligible': False, 'message': 'Vui lòng đăng nhập'})
     
     current_month = datetime.now().month
-    current_year = datetime.now().year
     
     # Kiểm tra thời gian sự kiện (chỉ từ tháng 8-12 hàng năm)
     if current_month < EVENT_CONFIG['start_month'] or current_month > EVENT_CONFIG['end_month']:
@@ -2012,16 +1966,16 @@ def check_eligibility():
     
     username = session['user']['username']
     
-    # Tính tổng chi tiêu TRONG THỜI GIAN SỰ KIỆN
-    total_spent = calculate_event_spending(username)
+    # Lấy thông tin từ users_db (đã có giải thưởng)
+    user_data = users_db.get(username, {})
+    total_spent = user_data.get('total_spent', 0)  # ✅ Đã có giải thưởng
     
-    # Lấy thông tin lượt quay (bao gồm 1 lượt miễn phí)
+    # Lấy thông tin lượt quay
     spin_info = get_max_spins(username)
     used_spins = get_used_spins(username)
     spins_remaining = max(0, spin_info['total_spins'] - used_spins)
     
-    # Kiểm tra có booking trong thời gian sự kiện không
-    has_event_bookings = check_event_bookings(username)
+    print(f"📊 Check eligibility: {username}, total_spent={total_spent:,}, spins_remaining={spins_remaining}")
     
     return jsonify({
         'eligible': spins_remaining > 0,
@@ -2031,9 +1985,8 @@ def check_eligibility():
         'spend_spins': spin_info['spend_spins'],
         'rank_bonus': spin_info['rank_bonus'],
         'rank': spin_info['rank'],
-        'total_spent': total_spent,
+        'total_spent': total_spent,  # ✅ Tổng chi tiêu (cả giải thưởng)
         'used_spins': used_spins,
-        'has_bookings': has_event_bookings,
         'username': username,
         'event_active': True
     })
@@ -2111,4 +2064,5 @@ init_event_files()
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
