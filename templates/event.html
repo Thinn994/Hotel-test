@@ -501,14 +501,13 @@
         document.addEventListener('DOMContentLoaded', function() {
             // DANH SÁCH GIẢI THƯỞNG - KHỚP VỚI SERVER (app.py)
             const testPrizes = [
-                // Ô 0-6 (7 ô tổng cộng)
-                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 40, color: '#ff6b6b', index: 0 },        // Ô 1: May mắn (40%)
-                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 25, color: '#4ecdc4', index: 1 },        // Ô 2: May mắn (25%)
-                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 15, color: '#45b7d1', index: 2 },        // Ô 3: May mắn (15%)
-                { name: '50,000 VNĐ', value: 50000, probability: 10, color: '#96ceb4', index: 3 },                  // Ô 4: 50K (10%)
-                { name: '100,000 VNĐ', value: 100000, probability: 5, color: '#f7dc6f', index: 4 },                 // Ô 5: 100K (5%)
-                { name: '200,000 VNĐ', value: 200000, probability: 3, color: '#f8c471', index: 5 },                 // Ô 6: 200K (3%)
-                { name: '500,000 VNĐ', value: 500000, probability: 2, color: '#9b59b6', index: 6 }                  // Ô 7: 500K (2%)
+                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 40, color: '#ff6b6b', index: 0 },     // Ô 1: May mắn (40%)
+                { name: '50,000 VNĐ', value: 50000, probability: 10, color: '#4ecdc4', index: 1 },              // Ô 2: 50K (10%)
+                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 25, color: '#45b7d1', index: 2 },   // Ô 3: May mắn (25%)
+                { name: '100,000 VNĐ', value: 100000, probability: 5, color: '#96ceb4', index: 3 },           // Ô 4: 100K (5%)
+                { name: 'Chúc bạn may mắn lần sau', value: 0, probability: 15, color: '#f7dc6f', index: 4 },  // Ô 5: May mắn (15%)
+                { name: '200,000 VNĐ', value: 200000, probability: 3, color: '#f8c471', index: 5 },          // Ô 6: 200K (3%)
+                { name: '500,000 VNĐ', value: 500000, probability: 2, color: '#9b59b6', index: 6 }           // Ô 7: 500K (2%)
             ];
 
             let spinCount = 0;
@@ -701,25 +700,34 @@
             // Tính góc dừng CHÍNH XÁC
             function calculateStopAngle(prizeIndex) {
                 const numPrizes = 7;
-                const sectorAngle = 360 / numPrizes;  // 51.43 độ mỗi ô
+                const sectorAngle = 360 / numPrizes;  // 51.4286 độ mỗi ô
                 
-                // Mũi tên chỉ lên trên (0 độ), nhưng ô đầu tiên bắt đầu ở góc -90 độ (trên cùng)
-                // Chúng ta cần quay để prize nằm ở vị trí mũi tên (180 độ từ trên)
+                console.log(`🎯 Tính góc cho prizeIndex: ${prizeIndex} (Ô ${prizeIndex + 1})`);
                 
-                // Công thức đúng:
-                // 1. Tính góc tâm của ô giải thưởng (tính từ -90 độ)
-                const prizeCenterAngle = (prizeIndex * sectorAngle) + (sectorAngle / 2) - 90;
+                // CÔNG THỨC CHÍNH XÁC:
+                // 1. Mũi tên ở góc 0 độ (trên cùng)
+                // 2. Ô đầu tiên (index 0) bắt đầu ở góc -90 độ
+                // 3. Góc tâm của ô giải thưởng:
+                const prizeCenterAngle = -90 + (prizeIndex * sectorAngle) + (sectorAngle / 2);
                 
-                // 2. Quay ngược lại để đưa ô giải thưởng đến vị trí mũi tên (180 độ từ trên)
-                // Mũi tên ở góc 180 độ (dưới đáy)
-                let stopAngle = 360 - prizeCenterAngle + 180;
+                console.log(`📐 Góc tâm ô ${prizeIndex + 1}: ${prizeCenterAngle.toFixed(2)}°`);
                 
-                // 3. Thêm vài vòng quay cho hiệu ứng
-                const minRotations = 5;
+                // 4. Để đưa ô này đến mũi tên (0 độ), cần quay:
+                //    stopAngle = 0 - prizeCenterAngle = -prizeCenterAngle
+                let stopAngle = -prizeCenterAngle;
+                
+                console.log(`🔄 Góc quay cơ bản: ${stopAngle.toFixed(2)}°`);
+                
+                // 5. Thêm ít nhất 3 vòng quay cho hiệu ứng
+                const minRotations = 3;
                 stopAngle += minRotations * 360;
                 
-                // Debug
-                console.log(`🎯 Prize index: ${prizeIndex}, Center angle: ${prizeCenterAngle.toFixed(2)}°, Stop angle: ${stopAngle.toFixed(2)}°`);
+                // 6. Đảm bảo góc dương
+                while (stopAngle < 0) {
+                    stopAngle += 360;
+                }
+                
+                console.log(`🎡 Góc dừng cuối: ${stopAngle.toFixed(2)}°`);
                 
                 return stopAngle;
             }
