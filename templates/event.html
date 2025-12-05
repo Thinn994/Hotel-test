@@ -700,34 +700,19 @@
             // Tính góc dừng CHÍNH XÁC
             function calculateStopAngle(prizeIndex) {
                 const numPrizes = 7;
-                const sectorAngle = 360 / numPrizes;  // 51.4286 độ mỗi ô
+                const sectorAngle = 360 / numPrizes;
                 
-                console.log(`🎯 Tính góc cho prizeIndex: ${prizeIndex} (Ô ${prizeIndex + 1})`);
+                // Góc bắt đầu của ô đầu tiên (có thể cần điều chỉnh)
+                const startAngle = -90; // hoặc 0, 90, -45 tùy vào thiết kế
                 
-                // CÔNG THỨC CHÍNH XÁC:
-                // 1. Mũi tên ở góc 0 độ (trên cùng)
-                // 2. Ô đầu tiên (index 0) bắt đầu ở góc -90 độ
-                // 3. Góc tâm của ô giải thưởng:
-                const prizeCenterAngle = -90 + (prizeIndex * sectorAngle) + (sectorAngle / 2);
+                // Góc tâm của ô giải thưởng
+                const prizeCenterAngle = startAngle + (prizeIndex * sectorAngle) + (sectorAngle / 2);
                 
-                console.log(`📐 Góc tâm ô ${prizeIndex + 1}: ${prizeCenterAngle.toFixed(2)}°`);
+                // Góc quay để đưa ô đó lên vị trí mũi tên (0°)
+                let stopAngle = 360 - (prizeCenterAngle % 360);
                 
-                // 4. Để đưa ô này đến mũi tên (0 độ), cần quay:
-                //    stopAngle = 0 - prizeCenterAngle = -prizeCenterAngle
-                let stopAngle = -prizeCenterAngle;
-                
-                console.log(`🔄 Góc quay cơ bản: ${stopAngle.toFixed(2)}°`);
-                
-                // 5. Thêm ít nhất 3 vòng quay cho hiệu ứng
-                const minRotations = 3;
-                stopAngle += minRotations * 360;
-                
-                // 6. Đảm bảo góc dương
-                while (stopAngle < 0) {
-                    stopAngle += 360;
-                }
-                
-                console.log(`🎡 Góc dừng cuối: ${stopAngle.toFixed(2)}°`);
+                // Thêm ít nhất 3 vòng
+                stopAngle += 3 * 360;
                 
                 return stopAngle;
             }
