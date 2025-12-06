@@ -1329,7 +1329,7 @@ KHI ĐỀ XUẤT KHÁCH SẠN:
                 
                 response = model.generate_content(
                     full_prompt,
-                    generation_config=genai.Generation_config(
+                    generation_config=genai.generation_config(
                         temperature=0.2,  # Giảm nhiệt độ để chính xác hơn
                         max_output_tokens=1500
                     )
@@ -2127,6 +2127,7 @@ init_event_files()
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
