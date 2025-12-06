@@ -1147,39 +1147,15 @@ def update_hotel_status(name, status):
 # CẤU HÌNH GEMINI API
 # ------------------------
 try:
-    # API Key trực tiếp
-    GEMINI_API_KEY = "AIzaSyDEnLhh8fOoacSdyl9jvyiGS6HRSVas01w"
+    GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY", "DÁN_GEMINI_API_KEY_CỦA_ANH_VÀO_ĐÂY")
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "DÁN_GEMINI_API_KEY_CỦA_ANH_VÀO_ĐÂY":
+        print("CẢNH BÁO: GOOGLE_API_KEY chưa được set.")
     
-    # Kiểm tra API key
-    if not GEMINI_API_KEY or not GEMINI_API_KEY.startswith("AIzaSy"):
-        print("❌ API Key không hợp lệ")
-        model = None
-    else:
-        # Cấu hình Gemini
-        genai.configure(api_key=GEMINI_API_KEY)
-        
-        # Dùng model ổn định nhất
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        
-        # Test kết nối
-        print("🔗 Đang test kết nối Gemini...")
-        test_response = model.generate_content("Xin chào, test kết nối")
-        
-        # Lấy response an toàn
-        if hasattr(test_response, 'text'):
-            print(f"✅ Gemini hoạt động: {test_response.text[:50]}...")
-        else:
-            # Fallback cách lấy text
-            try:
-                text = test_response._result.candidates[0].content.parts[0].text
-                print(f"✅ Gemini hoạt động (fallback): {text[:50]}...")
-            except:
-                print("⚠️ Gemini kết nối được nhưng không đọc được response")
-                
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-3-pro-preview')
 except Exception as e:
-    print(f"❌ Lỗi cấu hình Gemini: {str(e)[:100]}")
-    model = None
-
+    print(f"Lỗi khởi tạo Gemini: {e}")
+    model = None # Đặt là None để kiểm tra sau
 # ------------------------
 
 @app.route('/ai_chat')
@@ -2064,5 +2040,6 @@ init_event_files()
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
