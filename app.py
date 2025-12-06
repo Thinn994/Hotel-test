@@ -1185,11 +1185,21 @@ def api_chat():
             # Đọc hotels.csv với đầy đủ cột
             hotels_df = pd.read_csv("hotels.csv", encoding='utf-8-sig')
             for _, hotel in hotels_df.iterrows():
-                # CHUYỂN ĐỔI BOOLEAN TỪ CHUỖI
-                buffet = hotel.get('buffet', 'False').lower() == 'true'
-                pool = hotel.get('pool', 'False').lower() == 'true'
-                sea = hotel.get('sea', 'False').lower() == 'true'
-                view = hotel.get('view', 'False').lower() == 'true'
+                # CHUYỂN ĐỔI BOOLEAN TỪ CHUỖI - FIXED: Xử lý cả trường hợp đã là boolean
+                buffet = hotel.get('buffet', False)
+                pool = hotel.get('pool', False)
+                sea = hotel.get('sea', False)
+                view = hotel.get('view', False)
+                
+                # Nếu là chuỗi thì chuyển đổi, nếu đã là boolean thì giữ nguyên
+                if isinstance(buffet, str):
+                    buffet = buffet.lower() == 'true'
+                if isinstance(pool, str):
+                    pool = pool.lower() == 'true'
+                if isinstance(sea, str):
+                    sea = sea.lower() == 'true'
+                if isinstance(view, str):
+                    view = view.lower() == 'true'
                 
                 hotel_info = {
                     'name': hotel.get('name', ''),
@@ -1327,12 +1337,13 @@ KHI ĐỀ XUẤT KHÁCH SẠN:
             try:
                 full_prompt = system_prompt + f"\n\nCâu hỏi của người dùng: {user_query}"
                 
+                # FIXED: Sử dụng generation_config đúng cách
                 response = model.generate_content(
                     full_prompt,
-                    generation_config=genai.generation_config(
-                        temperature=0.2,  # Giảm nhiệt độ để chính xác hơn
-                        max_output_tokens=1500
-                    )
+                    generation_config={
+                        'temperature': 0.2,  # Giảm nhiệt độ để chính xác hơn
+                        'max_output_tokens': 1500
+                    }
                 )
                 ai_response = response.text
                 
@@ -2127,6 +2138,7 @@ init_event_files()
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
