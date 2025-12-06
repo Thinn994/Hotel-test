@@ -518,33 +518,33 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
             const hasExplicitDenial = /(không tìm thấy|không có|chưa có|xin lỗi|rất tiếc|không thể|không recommend|không đề xuất)/i.test(aiResponse);
             const hasHotelRecommendation = /(khách sạn|resort|hotel|đề xuất|gợi ý|nên chọn|phù hợp|tốt nhất|sau đây)/i.test(aiResponse);
             const hasCityMention = /(nha trang|hồ chí minh|hà nội|đà nẵng|sài gòn)/i.test(aiResponse);
-                
+            
             // QUY TẮC QUAN TRỌNG: Chỉ hiển thị card khi AI thực sự đề xuất
             if (hasExplicitDenial || !hasHotelRecommendation || hotelData.length === 0) {
                 console.log("🚫 No hotel cards - Denial:", hasExplicitDenial, "Recommendation:", hasHotelRecommendation, "Data:", hotelData.length);
                 return '';
             }
-                
+            
             // Hiển thị số lượng khách sạn thực tế từ backend
             const displayCount = Math.min(hotelData.length, 3);
-                
+            
             let hotelsHTML = `
                 <div class="mt-3 mb-2">
                     <strong>🏨 ${displayCount} Khách sạn đề xuất:</strong>
                     <small class="text-muted"> (phù hợp với yêu cầu của bạn)</small>
                 </div>
-            ;
-                
+            `;
+            
             hotelData.slice(0, displayCount).forEach((hotel, index) => {
                 const cleanHotelName = hotel.name.replace(/[^\w\sÀ-ỹ]/gi, '').trim();
-                    
+                
                 // Tạo danh sách tiện ích từ boolean
                 const amenitiesList = [];
                 if (hotel.pool) amenitiesList.push("🏊 Hồ bơi");
                 if (hotel.sea) amenitiesList.push("🌊 Tiếp cận biển");
                 if (hotel.view) amenitiesList.push("🌅 View đẹp");
                 if (hotel.buffet) amenitiesList.push("🍽️ Buffet");
-                    
+                
                 hotelsHTML += `
                     <div class="hotel-card-detailed">
                         <div class="hotel-header">
@@ -558,24 +558,24 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                                 </div>
                             </div>
                         </div>
-                            
+                        
                         <div class="hotel-location">
                             📍 ${hotel.city || 'Đang cập nhật'}
                             ${hotel.rooms_available !== undefined ? `• Còn ${hotel.rooms_available} phòng` : ''}
                         </div>
-                            
+                        
                         <div class="hotel-price">
                             💰 ${hotel.price ? formatPrice(hotel.price) : 'Liên hệ'} / đêm
                         </div>
-                            
+                        
                         ${amenitiesList.length > 0 ? `
                         <div class="hotel-amenities">
                             ${amenitiesList.map(amenity => 
-                                    <span class="amenity-tag">${amenity}</span>`
+                                `<span class="amenity-tag">${amenity}</span>`
                             ).join('')}
                         </div>
                         ` : ''}
-                            
+                        
                         ${hotel.review ? `
                         <div class="hotel-review">
                             <strong>Đánh giá:</strong> 
@@ -583,26 +583,26 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                             <br>"${hotel.review.comment || 'Khách sạn tuyệt vời!'}"
                         </div>
                         ` : ''}
-                            
+                        
                         <div class="hotel-actions">
                             <a href="/hotel/${encodeURIComponent(cleanHotelName)}" 
-                                class="btn-hotel-detail" 
-                                target="_blank">
+                               class="btn-hotel-detail" 
+                               target="_blank">
                                 📖 Xem chi tiết
                             </a>
                             <a href="/booking/${encodeURIComponent(cleanHotelName)}/standard" 
-                                class="btn-hotel-booking" 
-                                target="_blank">
+                               class="btn-hotel-booking" 
+                               target="_blank">
                                 🏨 Đặt phòng ngay
                             </a>
                         </div>
                     </div>
-                 `;
+                `;
             });
-                
+            
             // Thêm nút "Hiển thị thêm" nếu có nhiều khách sạn
             if (displayCount >= 3) {
-                 hotelsHTML += `
+                hotelsHTML += `
                     <div class="text-center mt-3">
                         <button class="btn btn-outline-primary" onclick="requestMoreHotels()" style="font-size: 14px;">
                             🔄 Hiển thị thêm khách sạn khác
@@ -613,7 +613,7 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                     </div>
                 `;
             }
-                
+            
             console.log("✅ Generated hotel cards HTML");
             return hotelsHTML;
         }
