@@ -1345,7 +1345,24 @@ KHI ĐỀ XUẤT KHÁCH SẠN:
                         'max_output_tokens': 1500
                     }
                 )
-                ai_response = response.text
+                
+                # FIXED: Lấy text từ response theo cách mới
+                try:
+                    # Thử cách mới trước
+                    ai_response = response.text
+                except:
+                    # Nếu lỗi thì dùng cách cũ
+                    if hasattr(response, 'parts'):
+                        ai_response = ''.join(part.text for part in response.parts if hasattr(part, 'text'))
+                    elif hasattr(response, 'candidates'):
+                        ai_response = ''.join(part.text for candidate in response.candidates 
+                                            for part in candidate.content.parts if hasattr(part, 'text'))
+                    else:
+                        # Fallback cuối cùng
+                        ai_response = str(response)
+                        # Loại bỏ các ký tự không cần thiết
+                        import re
+                        ai_response = re.sub(r'<[^>]*>', '', ai_response)
                 
                 # Clean up response
                 cleaned_response = clean_ai_response(ai_response, query_analysis.get('is_greeting', False), conversation_history)
@@ -2138,10 +2155,3 @@ init_event_files()
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-
-
-
-
