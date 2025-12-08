@@ -1268,13 +1268,13 @@ def api_chat():
                 }
             ]
 
-        # 2. Phân tích câu hỏi THÔNG MINH HƠN VỚI BOOLEAN
+        # 2. Phân tích câu hỏi THÔNG MINH HƠN VỚI BOOLEAN - FIXED: Xử lý yêu cầu về hồ bơi
         query_analysis = analyze_user_query(user_query, conversation_history)
         
         print(f"🔍 Query Analysis: {query_analysis}")
-        print(f"📊 Available hotels with amenities: {[(h['name'], h['pool'], h['sea'], h['view']) for h in hotels_data]}")
+        print(f"📊 Available hotels: {len(hotels_data)} hotels with boolean amenities")
 
-        # 3. Xây dựng prompt THÔNG MINH với THÔNG TIN BOOLEAN
+        # 3. Xây dựng prompt THÔNG MINH với THÔNG TIN BOOLEAN - IMPROVED: Thêm logic rõ ràng hơn
         # Tạo danh sách khách sạn với thông tin chi tiết cho AI
         hotels_info_for_ai = []
         for hotel in hotels_data:
@@ -1296,7 +1296,7 @@ def api_chat():
         city_events_info = build_city_events_info(events_data)
         context_info = build_conversation_context(conversation_history)
         
-        # Tạo prompt với THÔNG TIN BOOLEAN RÕ RÀNG
+        # Tạo prompt với THÔNG TIN BOOLEAN RÕ RÀNG - IMPROVED: Logic lọc chính xác hơn
         system_prompt = f"""
 Bạn là trợ lý du lịch THÔNG MINH, CHUYÊN NGHIỆP. Hãy phân tích và trả lời câu hỏi MỘT CÁCH PHÙ HỢP.
 
@@ -1310,7 +1310,7 @@ Các khách sạn sau đây có thông tin CHÍNH XÁC về tiện ích (True/Fa
 {chr(10).join(hotels_info_for_ai)}
 
 QUY TẮC QUAN TRỌNG KHI ĐỀ XUẤT KHÁCH SẠN:
-1. CHỈ đề xuất khách sạn từ danh sách trên
+1. CHỈ đề xuất khách sạn từ danh sách trên - PHẢI ĐÚNG TÊN VÀ THÀNH PHỐ
 2. ĐỌC KỸ thông tin tiện ích trước khi đề xuất:
    - "pool: True" = có hồ bơi
    - "sea: True" = có biển/tiếp cận biển  
@@ -1318,17 +1318,29 @@ QUY TẮC QUAN TRỌNG KHI ĐỀ XUẤT KHÁCH SẠN:
    - "buffet: True" = có buffet
 3. KHÔNG tạo ra thông tin không có trong danh sách
 4. Nếu không có khách sạn phù hợp, nói rõ "Hiện không có khách sạn nào đáp ứng tiêu chí này"
+5. LUÔN đề xuất khách sạn theo THÀNH PHỐ được hỏi
 
 CÁCH XỬ LÝ CÁC TRƯỜNG HỢP CỤ THỂ:
-- Khi được hỏi "khách sạn có hồ bơi": CHỈ đề xuất khách sạn có "pool: True"
-- Khi được hỏi "khách sạn có view biển": CHỈ đề xuất khách sạn có "sea: True" HOẶC "view: True"
-- Khi được hỏi "khách sạn 4 sao trở lên": đề xuất khách sạn có stars >= 4
-- Khi được hỏi "cho tôi thêm khách sạn khác": đề xuất khách sạn CHƯA được nhắc đến trong lịch sử
+- Khi được hỏi "khách sạn có hồ bơi": CHỈ đề xuất khách sạn có "pool: True" trong thành phố được hỏi
+- Khi được hỏi "khách sạn có view biển": CHỈ đề xuất khách sạn có "sea: True" HOẶC "view: True" trong thành phố được hỏi
+- Khi được hỏi "khách sạn 4 sao trở lên": đề xuất khách sạn có stars >= 4 trong thành phố được hỏi
+- Khi được hỏi "cho tôi thêm khách sạn khác": đề xuất khách sạn CHƯA được nhắc đến trong lịch sử trong cùng thành phố
+- Khi được hỏi "khách sạn ở [thành phố]": CHỈ đề xuất khách sạn ở đúng thành phố đó
 
 KHI ĐỀ XUẤT KHÁCH SẠN:
-- Chọn 1-3 khách sạn phù hợp NHẤT với yêu cầu
-- Nhắc đến các tiện ích nổi bật (hồ bơi, view biển, buffet, v.v.)
-- Kết thúc bằng: "Đây là những khách sạn phù hợp từ hệ thống!"
+1. Phân tích thành phố trong câu hỏi: Nếu không có thành phố cụ thể, hỏi lại "Bạn muốn tìm khách sạn ở thành phố nào?"
+2. Chọn 1-3 khách sạn phù hợp NHẤT với yêu cầu từ đúng thành phố
+3. Nhắc đến các tiện ích nổi bật (hồ bơi, view biển, buffet, v.v.)
+4. Kết thúc bằng: "Đây là những khách sạn phù hợp từ hệ thống!"
+5. GHI NHỚ: Đề xuất PHẢI khớp với danh sách khách sạn thực tế
+
+VÍ DỤ CỤ THỂ:
+- Câu hỏi: "Cho tôi khách sạn ở Hà Nội có hồ bơi"
+- Cách xử lý: 
+  1. Lọc khách sạn ở thành phố "Hà Nội"
+  2. Lọc khách sạn có "pool: True"
+  3. Chọn 1-3 khách sạn từ danh sách trên
+  4. Trả lời với tên khách sạn CHÍNH XÁC từ danh sách
 """
 
         # 4. Gọi Gemini
@@ -1364,19 +1376,49 @@ KHI ĐỀ XUẤT KHÁCH SẠN:
                         import re
                         ai_response = re.sub(r'<[^>]*>', '', ai_response)
                 
+                print(f"🔍 AI Response: {ai_response[:500]}...")
+                
                 # Clean up response
                 cleaned_response = clean_ai_response(ai_response, query_analysis.get('is_greeting', False), conversation_history)
                 
-                # Chuẩn bị dữ liệu trả về
+                # Chuẩn bị dữ liệu trả về - FIXED: Thêm thông tin cho nút "hiển thị khách sạn khác"
                 response_data = {"response": cleaned_response}
                 
-                # Lọc khách sạn để hiển thị card
+                # Lọc khách sạn để hiển thị card - FIXED: Lọc chính xác hơn
                 if query_analysis.get('should_show_cards', False) and include_hotels:
                     recommended_hotels = get_recommended_hotels_from_ai_response(
                         hotels_data, reviews_data, user_query, cleaned_response, query_analysis
                     )
-                    response_data["hotels"] = recommended_hotels[:3]
-                    print(f"🏨 Showing {len(recommended_hotels[:3])} hotel cards")
+                    
+                    # FIXED: Ưu tiên khách sạn được AI đề xuất
+                    ai_mentioned_hotels = extract_hotel_names_from_ai_response(cleaned_response, hotels_data)
+                    print(f"🏨 AI mentioned hotels: {ai_mentioned_hotels}")
+                    
+                    # Nếu có khách sạn được AI đề xuất, ưu tiên hiển thị chúng
+                    if ai_mentioned_hotels:
+                        # Tìm khách sạn trong danh sách data
+                        prioritized_hotels = []
+                        for hotel_name in ai_mentioned_hotels:
+                            for hotel in hotels_data:
+                                if hotel['name'] == hotel_name:
+                                    prioritized_hotels.append(hotel)
+                                    break
+                        
+                        # Nếu không tìm thấy khách sạn AI đề xuất, dùng recommended_hotels
+                        if prioritized_hotels:
+                            response_data["hotels"] = prioritized_hotels[:3]
+                            print(f"🏨 Showing AI recommended hotels: {[h['name'] for h in prioritized_hotels[:3]]}")
+                        else:
+                            response_data["hotels"] = recommended_hotels[:3]
+                            print(f"🏨 Showing recommended hotels: {[h['name'] for h in recommended_hotels[:3]]}")
+                    else:
+                        response_data["hotels"] = recommended_hotels[:3]
+                        print(f"🏨 Showing recommended hotels: {[h['name'] for h in recommended_hotels[:3]]}")
+                    
+                    # FIXED: Thêm thông tin cho nút "hiển thị khách sạn khác"
+                    response_data["has_more_hotels"] = len(recommended_hotels) > 3
+                    response_data["total_hotels"] = len(recommended_hotels)
+                    response_data["query_analysis"] = query_analysis  # Gửi phân tích về frontend
                 
                 return jsonify(response_data)
                 
@@ -1390,6 +1432,7 @@ KHI ĐỀ XUẤT KHÁCH SẠN:
                     else:
                         return jsonify({"error": "Hệ thống đang quá tải. Vui lòng thử lại sau 1 phút."}), 429
                 else:
+                    print(f"Error in Gemini API call: {e}")
                     raise e
 
         return jsonify({"error": "Lỗi kết nối. Vui lòng thử lại."}), 500
@@ -1413,9 +1456,9 @@ def analyze_user_query(user_query, conversation_history):
     ]) and len(conversation_history) == 0
     
     # PHÁT HIỆN YÊU CẦU VỀ TIỆN ÍCH BOOLEAN
-    needs_pool = any(keyword in normalized_query for keyword in [
-        'có hồ bơi', 'có bể bơi', 'hồ bơi', 'bể bơi', 
-        'có swimming pool', 'swimming pool', 'pool'
+    needs_pool = any(word in query_lower for word in [
+        'hồ bơi', 'hồ bơi', 'bể bơi', 'có hồ bơi', 'có bể bơi',
+        'pool', 'swimming pool', 'có swimming pool'
     ])
     
     needs_beach = any(keyword in normalized_query for keyword in [
@@ -1951,6 +1994,32 @@ def extract_hotel_type_from_query(query):
         return 'midrange'
     return None
 
+def extract_hotel_names_from_ai_response(ai_response, hotels_data):
+    """Trích xuất tên khách sạn từ phản hồi AI để hiển thị card chính xác"""
+    hotel_names = []
+    
+    # Danh sách tên khách sạn trong database
+    all_hotel_names = [hotel['name'] for hotel in hotels_data]
+    
+    # Tìm tên khách sạn trong phản hồi AI
+    for hotel_name in all_hotel_names:
+        if hotel_name in ai_response:
+            hotel_names.append(hotel_name)
+    
+    # Nếu không tìm thấy, thử tìm theo thành phố hoặc từ khóa
+    if not hotel_names:
+        # Tìm thành phố trong câu hỏi
+        cities = ['Hà Nội', 'Hanoi', 'Đà Nẵng', 'Danang', 'Nha Trang', 'Hồ Chí Minh', 'HCM', 'Saigon']
+        for city in cities:
+            if city in ai_response:
+                # Lấy khách sạn ở thành phố đó
+                for hotel in hotels_data:
+                    if city.lower() in hotel['city'].lower() or hotel['city'].lower() in city.lower():
+                        hotel_names.append(hotel['name'])
+                break
+    
+    return hotel_names[:5]  # Giới hạn 5 khách sạn
+
 def extract_price_value(price_str):
     """Chuyển đổi chuỗi giá thành số"""
     if not price_str or price_str == 'Liên hệ':
@@ -2155,3 +2224,4 @@ init_event_files()
 # === KHỞI CHẠY APP ===
 if __name__ == '__main__':
     app.run(debug=True)
+
