@@ -236,11 +236,6 @@
             margin: 10px 0;
         }
 
-        .hotel-stars {
-            display: inline-flex;
-            gap: 1px;
-        }
-
         .amenity-tag {
             background: #f8f9fa;
             border: 1px solid #e1e5e9;
@@ -538,40 +533,33 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
             hotelData.slice(0, displayCount).forEach((hotel, index) => {
                 const cleanHotelName = hotel.name.replace(/[^\w\sÀ-ỹ]/gi, '').trim();
                 
-                // Tạo danh sách tiện ích từ boolean
-                const amenitiesList = [];
-                if (hotel.pool) amenitiesList.push("🏊 Hồ bơi");
-                if (hotel.sea) amenitiesList.push("🌊 Tiếp cận biển");
-                if (hotel.view) amenitiesList.push("🌅 View đẹp");
-                if (hotel.buffet) amenitiesList.push("🍽️ Buffet");
-                
                 hotelsHTML += `
                     <div class="hotel-card-detailed">
                         <div class="hotel-header">
                             <div class="hotel-name">${index + 1}. ${hotel.name}</div>
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="hotel-rating">
-                                    ⭐ ${hotel.rating || '4.0'}/5
-                                </div>
-                                <div class="hotel-stars" style="color: #FFD700; font-size: 14px;">
-                                    ${'★'.repeat(hotel.stars || 3)}${'☆'.repeat(5 - (hotel.stars || 3))}
-                                </div>
+                            <div class="hotel-rating">
+                                ⭐ ${hotel.rating || '4.0'}/5
                             </div>
                         </div>
                         
                         <div class="hotel-location">
-                            📍 ${hotel.city || 'Đang cập nhật'}
-                            ${hotel.rooms_available !== undefined ? `• Còn ${hotel.rooms_available} phòng` : ''}
+                            📍 ${hotel.city || 'Đang cập nhật'} • ${hotel.district || 'Trung tâm'}
                         </div>
                         
                         <div class="hotel-price">
                             💰 ${hotel.price ? formatPrice(hotel.price) : 'Liên hệ'} / đêm
                         </div>
                         
-                        ${amenitiesList.length > 0 ? `
+                        ${hotel.description ? `
+                        <div class="hotel-description">
+                            ${hotel.description}
+                        </div>
+                        ` : ''}
+                        
+                        ${hotel.amenities ? `
                         <div class="hotel-amenities">
-                            ${amenitiesList.map(amenity => 
-                                `<span class="amenity-tag">${amenity}</span>`
+                            ${hotel.amenities.split(',').slice(0, 4).map(amenity => 
+                                `<span class="amenity-tag">${amenity.trim()}</span>`
                             ).join('')}
                         </div>
                         ` : ''}
@@ -600,20 +588,6 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
                 `;
             });
             
-            // Thêm nút "Hiển thị thêm" nếu có nhiều khách sạn
-            if (displayCount >= 3) {
-                hotelsHTML += `
-                    <div class="text-center mt-3">
-                        <button class="btn btn-outline-primary" onclick="requestMoreHotels()" style="font-size: 14px;">
-                            🔄 Hiển thị thêm khách sạn khác
-                        </button>
-                        <p class="text-muted mt-1" style="font-size: 12px;">
-                            (Tôi sẽ tìm các khách sạn khác phù hợp với yêu cầu của bạn)
-                        </p>
-                    </div>
-                `;
-            }
-            
             console.log("✅ Generated hotel cards HTML");
             return hotelsHTML;
         }
@@ -623,16 +597,8 @@ Hãy kể cho tôi bạn đang tìm kiếm điều gì! 😊
             if (typeof price === 'number') {
                 return price.toLocaleString('vi-VN') + ' VNĐ';
             }
-            if (typeof price === 'string') {
-                // Nếu đã có định dạng tiền, giữ nguyên
-                if (price.includes('VNĐ') || price.includes('đ')) {
-                    return price;
-                }
-                // Nếu là số, thêm định dạng
-                const numericPrice = parseFloat(price.replace(/[^\d]/g, ''));
-                if (!isNaN(numericPrice)) {
-                    return numericPrice.toLocaleString('vi-VN') + ' VNĐ';
-                }
+            if (typeof price === 'string' && price.match(/\d/)) {
+                return price;
             }
             return 'Liên hệ';
         }
